@@ -64,7 +64,7 @@ Columnas:
 | Kenney / Quaternius (escenarios) | Objetos sencillos de relleno | CC0 | manual | ~2 GB. Solo para fondos lejanos (estilo low-poly) |
 | **Escenarios propios del sistema** | Casa, cocina, baño, recámara, sala, hospital, consultorio, calle, escuela, oficina, parque, gimnasio, estadio, vista microscópica | Propios, armados con lo anterior | Se construyen en la Fase 1/6 | — |
 
-## 5. Animaciones (captura de movimiento real, no IA)
+## 5. Animaciones de captura real (biblioteca)
 
 Todas se **adaptan una vez** a un **esqueleto estándar** del sistema y se etiquetan
 ("cojear", "caer", "sentarse", "tocarse la rodilla", "llorar").
@@ -76,39 +76,73 @@ Todas se **adaptan una vez** a un **esqueleto estándar** del sistema y se etiqu
 | **100STYLE** | Caminatas en 100 estilos (cansado, herido, alegre, viejo…) | CC-BY 4.0 | auto | ~1.5 GB |
 | *(Opcional)* Mixamo | Miles de animaciones; uso libre en tus videos | Adobe (gratis con cuenta, no redistribuible, **sin API**) | manual | — |
 
-## 6. Modelos de IA locales (solo audio y datos, **nunca imagen**)
+## 6. Modelos de IA locales (todo menos generar video)
 
-**Regla:** todo corre **localmente en tu GPU** y se instala al ejecutar la libreta. Los pesos quedan en
-caché en Drive para no bajarlos cada vez. Solo se usa una API cuando la versión con API es mucho mejor
-**y** gratuita. Para voz no es el caso: los modelos abiertos de 2026 alcanzan a las APIs gratuitas, así
-que **la voz es 100 % local**.
+**Regla:** la IA hace todo el trabajo, pero **ningún modelo genera ni retoca los fotogramas finales**;
+esos salen siempre del render de Blender. Todo corre **localmente en tu GPU**, se instala al ejecutar
+la libreta y los pesos quedan en caché en Drive. Solo se usa una API cuando es mucho mejor **y**
+gratuita (hoy, ninguna supera a estas opciones locales).
 
-Estas piezas no generan fotogramas. Todo lo que se ve sigue siendo render 3D. Licencias verificadas
-hoy en las fichas oficiales de Hugging Face.
+Licencias verificadas hoy en las fichas oficiales de Hugging Face. Todas permiten uso comercial.
 
-| Componente | Para qué | Licencia | Estado |
-|---|---|---|---|
-| **VoxCPM2** (OpenBMB, 2B, 48 kHz, 30 idiomas con español) | **Voz principal.** Diseño de voz por descripción ("narrador masculino, latino, cálido, enérgico") y clonación | Apache-2.0, uso comercial | Principal |
-| **Fun-CosyVoice3** (Alibaba FunAudioLLM, 0.5B) | Segunda voz y respaldo, con la misma referencia del narrador | Apache-2.0 | Respaldo |
-| **Chatterbox Multilingual v3** (Resemble AI) | Respaldo; tiene ajuste para español latino | MIT (marca de agua inaudible) | Respaldo |
-| Qwen3-TTS 1.7B (VoiceDesign / CustomVoice) | Muy buena en español y con control de emoción por instrucción | Apache-2.0 | **Pendiente:** tenías una regla de "0 % Qwen". ¿La mantienes? |
-| **faster-whisper large-v3** | Transcribe cada toma de voz para comprobar que dice exactamente el guion (si no, se regenera) | MIT | Principal |
-| **WhisperX + wav2vec2 español** | Tiempos exactos de cada palabra y fonema, para sincronizar tomas y labios | BSD / Apache-2.0 | Principal |
-| Visemas en español (propio) + Rhubarb Lip Sync | Labios a partir de los fonemas | Propio / MIT | Principal |
-| **SigLIP 2** (so400m) | Comprobar que un modelo descargado "parece" lo pedido; ordenar búsquedas | Apache-2.0 | Principal |
-| **ACE-Step 1.5 XL** | Música original de fondo generada localmente, sin reclamos de derechos | MIT | Principal (más biblioteca curada) |
-| **NVIDIA Kimodo SOMA** (checkpoint `Kimodo-SOMA-RP-v1.2`) | Texto → movimiento de esqueleto, para acciones que no estén en la biblioteca de capturas | NVIDIA Open Model License (permite uso comercial). **El checkpoint SMPL-X es solo para investigación: excluido** | Instalado, **se activa con tu permiso** (es movimiento generado por IA, no imagen) |
-| OpenImageDenoise / OptiX Denoiser | Quitar el ruido del render de Cycles (estándar de la industria, no inventa contenido) | Apache-2.0 / NVIDIA | Principal |
+### 6.1 Voz y tiempos
+| Modelo | Para qué | Licencia |
+|---|---|---|
+| **VoxCPM2** (OpenBMB, 2B, 48 kHz) | **Voz principal** en español; diseño de voz por descripción y clonación. La voz del narrador se guarda y es la misma en todos los videos | Apache-2.0 |
+| Fun-CosyVoice3 (0.5B) | Respaldo con la misma voz de referencia | Apache-2.0 |
+| Chatterbox Multilingual v3 | Respaldo; tiene ajuste para español latino | MIT (marca de agua inaudible) |
+| faster-whisper large-v3 | Verifica que cada frase diga exactamente el guion; si no, se regenera | MIT |
+| WhisperX + wav2vec2 español | Tiempo exacto de cada palabra y fonema | BSD / Apache-2.0 |
 
-**Descartados por licencia no comercial:** OmniVoice (pesos CC-BY-NC), XTTS-v2 (CPML), F5-TTS base
-(CC-BY-NC), MMAudio (CC-BY-NC), Fish Speech (CC-BY-NC-SA).
+### 6.2 Animación
+| Modelo | Para qué | Licencia |
+|---|---|---|
+| **NVIDIA Kimodo** (`Kimodo-SOMA-RP-v1.2`) | **Texto → movimiento del esqueleto** ("cojea apoyándose en la pared, se sienta con dolor"), con restricciones de pies, trayectoria y poses clave; también genera transiciones entre clips | NVIDIA Open Model License (comercial). **El checkpoint SMPL-X es solo para investigación: excluido** |
+| **NVIDIA Audio2Face-3D v3.0** | **Cara completa a partir de la voz:** labios, lengua, mandíbula, ojos y emoción (salida de *blendshapes* tipo ARKit) | NVIDIA Open Model License (comercial) |
+| Tencent HY-Motion 1.0 | Segundo modelo texto → movimiento | Tencent Hunyuan Community: **no aplica en la UE, Reino Unido ni Corea del Sur**. Solo si estás fuera de esos territorios |
+| Limpieza propia (sin IA) | Pies bloqueados en el piso (IK), suavizado de curvas, sin atravesar el suelo, mezcla de clips | Propio |
 
-**Descartado por tu regla de "nada de IA en imagen":** generadores de modelos 3D por IA (TRELLIS y similares).
+### 6.3 Creación de modelos 3D
+| Modelo | Para qué | Licencia |
+|---|---|---|
+| **Z-Image-Turbo** (Tongyi) | Imagen de concepto del objeto en el **estilo fijo del canal** (paso previo al 3D) y texturas | Apache-2.0 |
+| FLUX.2-klein-4B | Alternativa para concepto y texturas | Apache-2.0 (**las variantes 9B y FLUX.2-dev son no comerciales: excluidas**) |
+| **TRELLIS.2-4B** (Microsoft) | **Imagen → modelo 3D con textura PBR** | MIT |
+| Step1X-3D | Alternativa imagen → 3D | Apache-2.0 |
+| PartCrafter | Modelos 3D separados por partes (puertas que abren, objetos articulados) | MIT |
+| **UniRig** (VAST) | Esqueleto automático para modelos generados (personajes y animales extra) | MIT |
+| Puppeteer (Seed3D) | Esqueleto y pesos automáticos, alternativa | Apache-2.0 |
+| Hunyuan3D-2.1 | Alternativa imagen → 3D | Tencent Community (mismas restricciones territoriales que HY-Motion) |
 
-### APIs que se mantienen (no hay alternativa local)
-Solo **fuentes de datos**, no modelos: Sketchfab, Smithsonian, Freesound, BlenderKit, Poly Haven y
-ambientCG. Son bibliotecas en internet; no existe una versión "local" de su contenido salvo descargarlo,
-que es justo lo que hace el sistema.
+### 6.4 Dirección y control de calidad
+| Modelo | Para qué | Licencia |
+|---|---|---|
+| **Gemma 4** (31B o 26B-A4B, visión) | Revisor visual **local**: mira hojas de contacto y fotos, compara con el plan y propone correcciones sin esperar a Antigravity | Apache-2.0 |
+| **SigLIP 2** (so400m) | Comprueba que un modelo descargado o generado "parece" lo pedido; ordena búsquedas | Apache-2.0 |
+
+### 6.5 Audio
+| Modelo | Para qué | Licencia |
+|---|---|---|
+| **ACE-Step 1.5 XL** | Música original de fondo | MIT |
+| Sonniss + Freesound (bibliotecas) | Efectos de sonido reales | Libre de regalías / CC0 / CC-BY |
+
+### 6.6 Render
+| Componente | Para qué | Licencia |
+|---|---|---|
+| OptiX Denoiser / OpenImageDenoise | Elimina el ruido del render de Cycles con muchas menos muestras (render varias veces más rápido). No inventa contenido: limpia el ruido del cálculo de luz | NVIDIA / Apache-2.0 |
+
+### Descartados
+| Qué | Por qué |
+|---|---|
+| Wan, Veo / Flow, Kling, Sora, HunyuanVideo, LTX-Video, CogVideoX | **Generadores de video: prohibidos por la regla de oro** |
+| Mejoradores de imagen sobre los fotogramas (upscalers con IA, img2img) | Retocarían los fotogramas finales |
+| OmniVoice, XTTS-v2, F5-TTS base, Fish Speech, MMAudio, FLUX.2-dev, FLUX.2-klein-9B | Licencias no comerciales |
+| Kimodo SMPL-X | Licencia de investigación de NVIDIA |
+| Modelos Qwen (Qwen3-TTS, Qwen-Image, Qwen3-VL) | Tienen licencia libre, pero respeto tu regla de "0 % Qwen" hasta que me digas lo contrario. Hay alternativas equivalentes arriba |
+
+### APIs que se mantienen
+Solo **fuentes de recursos**: Sketchfab, Smithsonian, Freesound, BlenderKit, Poly Haven y ambientCG.
+Son bibliotecas en internet; su contenido no se puede "generar localmente", se descarga.
 
 ## 7. Sonido y música
 
@@ -132,20 +166,20 @@ que es justo lo que hace el sistema.
 
 | Bloque | Tamaño aprox. |
 |---|---|
-| Programas y modelos de IA locales (voz, Whisper, SigLIP, música, movimiento) | 50–70 GB |
+| Programas y modelos de IA locales (voz, animación, 3D, visión, música) | 150–200 GB |
 | Poly Haven + ambientCG | 80–100 GB |
 | Personajes, anatomía y animaciones | 10–15 GB |
 | Sonido y música | 100 GB |
 | Índices y fotos de la biblioteca | 5 GB |
 | Proyectos (cuadros temporales, se limpian al entregar) | 20–50 GB por proyecto activo |
-| **Total inicial** | **≈ 300–350 GB** |
+| **Total inicial** | **≈ 400–500 GB** |
 
 ## 10. Lo que se descarta a propósito
 
 | Qué | Por qué |
 |---|---|
 | "Descargar todo internet" | Mezcla estilos, licencias dudosas, esqueletos incompatibles, terabytes. La rapidez sale de una biblioteca **preparada**, no gigante |
-| Generadores de video o imagen por IA | Tu requisito: todo debe ser render 3D |
+| Generadores de video por IA | Regla de oro: todo fotograma sale de Blender |
 | Sitios de modelos sin licencia clara, modelos de videojuegos | Riesgo legal y archivos `.blend` con código que se ejecuta al abrir |
 | Datasets de entrenamiento (como los 14.75 GB del zip anterior) | No aportan nada a la imagen |
 | Voz por API (Google Chirp, ElevenLabs) | Los modelos locales de 2026 están a la par de lo gratuito; ElevenLabs solo permite uso comercial en planes de pago |

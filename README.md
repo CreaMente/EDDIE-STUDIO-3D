@@ -1,7 +1,9 @@
 # EDDIE STUDIO 3D
 
 Sistema para producir videos verticales estilo **«¿Qué pasaría si…?»** (formato His Story) con **3D
-renderizado de verdad en Blender**. Ningún fotograma se genera con IA.
+renderizado de verdad en Blender**, automatizado por IA de principio a fin: guion, voz, modelos 3D,
+animación del cuerpo (Kimodo) y de la cara (Audio2Face), música y revisión. **Prohibidos los generadores
+de video** (Wan, Veo, Flow…): cada fotograma sale del render de Blender.
 
 - **Cerebro:** Google Antigravity, conectado por túnel. Recibe el pedido, escribe el guion, planea las tomas y usa las herramientas.
 - **Estudio:** Google Colab con RTX PRO 6000. Voz, armado de escenas, render y montaje.
