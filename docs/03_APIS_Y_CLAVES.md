@@ -2,8 +2,9 @@
 
 ## Dónde van las claves
 
-**La primera celda de la libreta tiene un formulario.** Pegas tus claves ahí **una sola vez** y se
-guardan en un archivo privado de tu Drive (`Mi unidad/EDDIE_STUDIO/privado/claves.json`). Desde
+**La primera celda de la libreta te pide cada clave en un campo oculto.** Las pegas **una sola vez** y
+se guardan en un archivo privado de tu Drive (`Mi unidad/EDDIE_STUDIO/privado/claves.json`); no quedan
+escritas dentro de la libreta. Desde
 entonces se cargan solas en cada ejecución. También funciona si las pones en **Colab Secrets** (el
 icono 🔑) con los mismos nombres; si una clave está en los dos lugares, gana Colab Secrets.
 
@@ -15,7 +16,7 @@ Las claves **nunca** se guardan en GitHub ni en los reportes, y nunca se imprime
 
 | # | Servicio | Para qué | Costo | Nombre de la clave | ¿Obligatorio? |
 |---|---|---|---|---|---|
-| 1 | **ngrok** | Túnel con dirección fija para conectar Antigravity | Gratis | `NGROK_AUTHTOKEN` | Sí (sin él se usa un túnel de Cloudflare cuya dirección cambia cada sesión) |
+| 1 | ngrok | Túnel con dirección fija (alternativa) | Gratis | `NGROK_AUTHTOKEN` | **No.** El túnel por defecto es Cloudflare temporal, sin cuenta |
 | 2 | **Hugging Face** | Descargar los modelos locales (voz, Whisper, SigLIP, música, movimiento) | Gratis | `HF_TOKEN` | Sí |
 | 3 | GitHub | Que Colab descargue el código de este repo (si es privado) | Gratis | `GITHUB_TOKEN` | Sí, si el repo es privado |
 | 4 | Sketchfab | Buscar y descargar modelos 3D CC0/CC-BY | Gratis | `SKETCHFAB_API_TOKEN` | Sí |
@@ -46,7 +47,7 @@ Los menús de estos sitios cambian seguido. Si algún nombre no coincide, busca 
    - `nvidia/Kimodo-SOMA-RP-v1.2` (movimiento, NVIDIA Open Model License)
    - Si alguno más lo pide, la libreta te dirá exactamente cuál.
 
-### ngrok — `NGROK_AUTHTOKEN`
+### ngrok (opcional) — `NGROK_AUTHTOKEN`
 1. Crea una cuenta gratuita en ngrok.com.
 2. **Getting Started → Your Authtoken →** copia el token.
 3. **Domains:** el plan gratuito te asigna **un dominio fijo** (algo como `tu-nombre.ngrok-free.app`). La
