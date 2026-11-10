@@ -41,33 +41,42 @@ imagen y el audio.**
 
 ---
 
-## 2. Cómo se conecta Antigravity con Colab
+## 2. Cómo se conecta Antigravity con Colab: túnel MCP (decisión del propietario)
 
-### Opción principal: servidor MCP oficial de Colab
-Google publicó en 2026 [`googlecolab/colab-mcp`](https://github.com/googlecolab/colab-mcp) (Apache-2.0).
-Corre en tu PC y conecta tu agente con la pestaña de Colab abierta en tu navegador: el agente puede
-**crear y ejecutar celdas**. Ventajas:
+La libreta levanta dentro de Colab un **servidor MCP** (el estándar con el que los agentes usan
+herramientas) y lo publica con un **túnel HTTPS protegido con clave**. Antigravity se conecta a esa
+dirección y tiene acceso a:
 
-- Es oficial y es "cómputo interactivo con Colab": no viola las reglas de uso.
-- No necesita túnel, ngrok ni dominio.
-- Antigravity ejecuta celdas como `estudio.render("proyecto_x", calidad="maxima")`.
+- **Herramientas del estudio** (§3): voz, búsqueda, armado, render, montaje, control de calidad.
+- **Control total del runtime:** terminal (`ejecutar_comando`), Python (`ejecutar_python`), scripts de
+  Blender (`ejecutar_blender`), leer, escribir y listar archivos, subir y bajar archivos.
+  Así puede editar y corregir el sistema por dentro.
 
-**Requisito a verificar en la Fase 0:** el servidor exige que el cliente soporte
-`notifications/tools/list_changed`. Su README lista como probados Gemini CLI, Claude Code y Windsurf.
-Antigravity no aparece en esa lista, así que se prueba primero.
+### Túnel
+| | ngrok (principal) | Cloudflare Quick Tunnel (respaldo automático) |
+|---|---|---|
+| Dirección | **Fija para siempre** (dominio gratuito de tu cuenta): se configura en Antigravity **una sola vez** | Cambia en cada sesión |
+| Requiere | Cuenta gratuita + `NGROK_AUTHTOKEN` | Nada |
+| Límite gratuito | 1 GB de transferencia y 20 mil peticiones al mes: suficiente porque los videos **no viajan por el túnel**, se entregan por Drive | Sin límite publicado; pensado para pruebas |
 
-### Opción de respaldo: cola de trabajos en Drive
-Si la primera no funciona con Antigravity:
+### Seguridad
+- Cada petición exige la cabecera `Authorization: Bearer <CLAVE_ESTUDIO>`. La clave se genera al azar
+  la primera vez, se guarda en tu Drive privado y no cambia entre sesiones.
+- El servidor solo atiende a Antigravity. No sirve archivos al público ni actúa como proxy.
+- Todo comando queda registrado en `proyectos/_registro/`.
 
-1. Antigravity escribe `trabajos/<id>.json` en tu carpeta de Drive sincronizada en tu PC.
-2. Una celda "trabajador" en Colab revisa esa carpeta, ejecuta y escribe resultados y reportes en `resultados/<id>/`.
-3. Es más lenta (unos segundos a un minuto de sincronización), pero sigue siendo 100 % compatible con las reglas.
+### Riesgo aceptado por el propietario
+Las [reglas de Colab](https://research.google.com/colaboratory/faq.html) prohíben en todos los
+runtimes los "web service offerings not related to interactive compute with Colab" y "connecting to
+remote proxies". Este uso es tu propio agente controlando tu propio cómputo, pero Google podría
+interpretarlo distinto. Para reducir el riesgo:
+- la celda queda **activa y visible** mostrando el registro;
+- no se sirve contenido a terceros;
+- los MP4 salen por Drive, no por el túnel.
 
-### Lo que NO usaremos
-Un túnel (ngrok o Cloudflare) con un servidor web propio dentro de Colab. Las
-[reglas de Colab](https://research.google.com/colaboratory/faq.html) prohíben en **todos** los
-runtimes, incluso los de pago, "file hosting, media serving, or other web service offerings not
-related to interactive compute with Colab" y "connecting to remote proxies". Arriesgar tu cuenta no vale la pena.
+**Respaldo sin túnel**, si algún día lo necesitas: el conector oficial
+[`googlecolab/colab-mcp`](https://github.com/googlecolab/colab-mcp), donde Antigravity crea y ejecuta
+celdas en la pestaña abierta. El paquete `estudio` funciona igual con ambos.
 
 ---
 
@@ -121,7 +130,7 @@ herramientas igual cada vez.
 |---|---|---|---|---|
 | Falta un objeto ("piedra", "estadio") | Biblioteca propia | Poly Haven (API, CC0) | Sketchfab (API, solo CC0 o CC-BY descargable) y Smithsonian (CC0) | Procedural (piedras, terreno, edificios simples) o reencuadre de la toma. Se anota en el reporte |
 | Falta una animación | Biblioteca de capturas ya adaptada | Mezcla de capturas (caminar + gesto) | *(Opcional, desactivado)* movimiento generado por IA en esqueleto, ver Inventario §6 | Pose fija con microanimación y cámara que lo disimula |
-| Falla la voz principal | Google Chirp 3 HD | Chatterbox local en la GPU | Kokoro local | — |
+| Una frase de voz sale mal (Whisper no reconoce el texto) | Se regenera con otra semilla (se generan 3 tomas por frase y se elige la mejor) | Fun-CosyVoice3 con la misma voz de referencia | Chatterbox | Se marca en el reporte |
 | La sesión de Colab se corta | Se retoma desde el último bloque renderizado (`estudio.estado`) | — | — | — |
 | La GPU no da OptiX | CUDA | — | — | CPU, avisando el tiempo |
 | El render tarda más de lo estimado | Bajar muestras con eliminación de ruido | EEVEE en vez de Cycles en tomas lejanas | — | — |
@@ -150,7 +159,8 @@ escala real, orientación, materiales corregidos, foto de prueba y etiquetas. La
 ```
 Mi unidad/EDDIE_STUDIO/
 ├── sistema/          blender-5.2-linux.tar.xz, ruedas de Python precompiladas
-├── modelos_ia/       voz (Chatterbox, Kokoro), Whisper, SigLIP 2   (~15–25 GB)
+├── modelos_ia/       voz (VoxCPM2, CosyVoice3, Chatterbox), Whisper, SigLIP 2, música   (~40–60 GB)
+├── voces/            la voz fija del narrador (referencia) para que todos los videos suenen igual
 ├── biblioteca/
 │   ├── indice.sqlite   búsqueda por texto y etiquetas, más vectores de imagen
 │   ├── personajes/ escenarios/ objetos/ anatomia/
@@ -186,7 +196,7 @@ No se pasa a la siguiente fase sin cumplir su criterio, comprobado con archivos 
 
 | Fase | Qué se construye | Criterio de aceptación |
 |---|---|---|
-| **0. Conexión y entorno** | Celda de arranque, Blender 5.2 LTS, prueba de `colab-mcp` con Antigravity (o la cola de Drive), estructura en Drive | Antigravity ejecuta una celda que renderiza en la GPU un cuadro 1080x1920 con Cycles OptiX y con EEVEE, y recibe el PNG. Tiempos medidos |
+| **0. Conexión y entorno** | Libreta de arranque (claves, Drive, instalación, modelos locales, servidor MCP, túnel), Blender 5.2 LTS, estructura en Drive | Antigravity se conecta por el túnel, ejecuta un render en la GPU de un cuadro 1080x1920 con Cycles OptiX y con EEVEE, y recibe la imagen. Tiempos medidos |
 | **1. Biblioteca base** | Ingesta (descarga → normalización → foto → índice → licencia) de las fuentes del Inventario; esqueleto estándar y adaptación de capturas | Búsqueda de 50 términos de prueba con el resultado correcto y licencia registrada; 100+ animaciones adaptadas sin pies que patinen |
 | **2. Voz y tiempos** | TTS, alineación por palabra y fonema, visemas en español | Narración de 120 s con tiempos de palabra verificados (error < 60 ms en muestra revisada) |
 | **3. Director de escena** | Plan → escenas Blender, cámaras, luces, labios, expresiones, objetos en mano | Un plan de 12 tomas se arma sin errores y pasa el control de la escena |

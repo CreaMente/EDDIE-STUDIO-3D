@@ -25,10 +25,17 @@ Columnas:
 
 | Componente | Para qué | Licencia | Obtención |
 |---|---|---|---|
-| Google Antigravity | El cerebro: guion, plan y uso de las herramientas | Google | ya lo tienes |
-| [`googlecolab/colab-mcp`](https://github.com/googlecolab/colab-mcp) + `uv` | Conecta Antigravity con tu pestaña de Colab (crear y ejecutar celdas) | Apache-2.0 | auto (`uvx`) |
+| Google Antigravity | El cerebro: guion, plan y uso de las herramientas por el túnel | Google | ya lo tienes |
 | Google Drive para escritorio | Que los MP4 de `entregas/` aparezcan en tu PC y Antigravity los entregue | Google | manual (instalar) |
-| Chrome con la pestaña de Colab abierta | El MCP oficial trabaja a través de esa pestaña | — | — |
+| Pestaña de Colab abierta | Mantiene viva la sesión mientras trabaja | — | — |
+
+## 2b. Servidor y túnel (en Colab)
+
+| Componente | Para qué | Licencia | Obtención |
+|---|---|---|---|
+| FastMCP (Python) | Servidor MCP con las herramientas del estudio y el control del runtime | Apache-2.0 | auto (pip) |
+| ngrok | Túnel HTTPS con dirección fija gratuita | Gratis con cuenta | clave (`NGROK_AUTHTOKEN`) |
+| cloudflared | Túnel de respaldo sin cuenta | Apache-2.0 | auto |
 
 ---
 
@@ -69,21 +76,39 @@ Todas se **adaptan una vez** a un **esqueleto estándar** del sistema y se etiqu
 | **100STYLE** | Caminatas en 100 estilos (cansado, herido, alegre, viejo…) | CC-BY 4.0 | auto | ~1.5 GB |
 | *(Opcional)* Mixamo | Miles de animaciones; uso libre en tus videos | Adobe (gratis con cuenta, no redistribuible, **sin API**) | manual | — |
 
-## 6. IA permitida (solo datos y audio, **nunca imagen**)
+## 6. Modelos de IA locales (solo audio y datos, **nunca imagen**)
 
-Estas piezas no generan fotogramas: producen voz, tiempos o datos de esqueleto. Todo lo que se ve
-sigue siendo render 3D. Las marcadas **APAGADO** solo se activan si tú lo autorizas.
+**Regla:** todo corre **localmente en tu GPU** y se instala al ejecutar la libreta. Los pesos quedan en
+caché en Drive para no bajarlos cada vez. Solo se usa una API cuando la versión con API es mucho mejor
+**y** gratuita. Para voz no es el caso: los modelos abiertos de 2026 alcanzan a las APIs gratuitas, así
+que **la voz es 100 % local**.
 
-| Componente | Para qué | Licencia | Obtención | Estado |
-|---|---|---|---|---|
-| **Google Cloud TTS — Chirp 3 HD** | Voz principal en español, muy natural | Comercial. 1 millón de caracteres gratis al mes (≈ 500 videos de 2 min); requiere tener facturación activada | clave | Principal |
-| **Chatterbox Multilingual** (Resemble AI) | Voz local en la GPU, español, clonación con tu consentimiento | MIT (incluye marca de agua inaudible) | auto | Respaldo |
-| Kokoro-82M | Voz local rápida | Apache-2.0 | auto | Segundo respaldo |
-| **faster-whisper large-v3** + WhisperX con wav2vec2 en español | Tiempos exactos de cada palabra y fonema (para sincronizar tomas y labios) | MIT / BSD / Apache | auto | Principal |
-| Visemas en español (propio) + Rhubarb Lip Sync | Labios a partir de los fonemas | Propio / MIT | auto | Principal |
-| **SigLIP 2** | Comprobar que el modelo descargado "parece" lo pedido; ordenar resultados de búsqueda | Apache-2.0 | auto | Principal |
-| NVIDIA Kimodo / ARDY (texto → movimiento de esqueleto) | Animaciones que no existen en la biblioteca | Código Apache-2.0; pesos NVIDIA Open Model License (revisar qué checkpoint permite uso comercial) | auto | **APAGADO** |
-| TRELLIS (texto o imagen → modelo 3D) | Último recurso para un objeto inexistente | MIT (verificar versión) | auto | **APAGADO** (el resultado sería geometría hecha por IA) |
+Estas piezas no generan fotogramas. Todo lo que se ve sigue siendo render 3D. Licencias verificadas
+hoy en las fichas oficiales de Hugging Face.
+
+| Componente | Para qué | Licencia | Estado |
+|---|---|---|---|
+| **VoxCPM2** (OpenBMB, 2B, 48 kHz, 30 idiomas con español) | **Voz principal.** Diseño de voz por descripción ("narrador masculino, latino, cálido, enérgico") y clonación | Apache-2.0, uso comercial | Principal |
+| **Fun-CosyVoice3** (Alibaba FunAudioLLM, 0.5B) | Segunda voz y respaldo, con la misma referencia del narrador | Apache-2.0 | Respaldo |
+| **Chatterbox Multilingual v3** (Resemble AI) | Respaldo; tiene ajuste para español latino | MIT (marca de agua inaudible) | Respaldo |
+| Qwen3-TTS 1.7B (VoiceDesign / CustomVoice) | Muy buena en español y con control de emoción por instrucción | Apache-2.0 | **Pendiente:** tenías una regla de "0 % Qwen". ¿La mantienes? |
+| **faster-whisper large-v3** | Transcribe cada toma de voz para comprobar que dice exactamente el guion (si no, se regenera) | MIT | Principal |
+| **WhisperX + wav2vec2 español** | Tiempos exactos de cada palabra y fonema, para sincronizar tomas y labios | BSD / Apache-2.0 | Principal |
+| Visemas en español (propio) + Rhubarb Lip Sync | Labios a partir de los fonemas | Propio / MIT | Principal |
+| **SigLIP 2** (so400m) | Comprobar que un modelo descargado "parece" lo pedido; ordenar búsquedas | Apache-2.0 | Principal |
+| **ACE-Step 1.5 XL** | Música original de fondo generada localmente, sin reclamos de derechos | MIT | Principal (más biblioteca curada) |
+| **NVIDIA Kimodo SOMA** (checkpoint `Kimodo-SOMA-RP-v1.2`) | Texto → movimiento de esqueleto, para acciones que no estén en la biblioteca de capturas | NVIDIA Open Model License (permite uso comercial). **El checkpoint SMPL-X es solo para investigación: excluido** | Instalado, **se activa con tu permiso** (es movimiento generado por IA, no imagen) |
+| OpenImageDenoise / OptiX Denoiser | Quitar el ruido del render de Cycles (estándar de la industria, no inventa contenido) | Apache-2.0 / NVIDIA | Principal |
+
+**Descartados por licencia no comercial:** OmniVoice (pesos CC-BY-NC), XTTS-v2 (CPML), F5-TTS base
+(CC-BY-NC), MMAudio (CC-BY-NC), Fish Speech (CC-BY-NC-SA).
+
+**Descartado por tu regla de "nada de IA en imagen":** generadores de modelos 3D por IA (TRELLIS y similares).
+
+### APIs que se mantienen (no hay alternativa local)
+Solo **fuentes de datos**, no modelos: Sketchfab, Smithsonian, Freesound, BlenderKit, Poly Haven y
+ambientCG. Son bibliotecas en internet; no existe una versión "local" de su contenido salvo descargarlo,
+que es justo lo que hace el sistema.
 
 ## 7. Sonido y música
 
@@ -92,7 +117,7 @@ sigue siendo render 3D. Las marcadas **APAGADO** solo se activan si tú lo autor
 | **Sonniss GDC Game Audio Bundles** (varios años) | Decenas de miles de efectos profesionales | Libre de regalías, uso comercial, sin atribución. Prohíbe entrenar IA (no lo hacemos) | manual (descarga gratis anual) | ~30 GB por paquete. Recomiendo 3 → ~90 GB |
 | **Freesound** (API) | Efectos específicos que falten | Solo CC0 / CC-BY (filtro) | clave | Bajo demanda |
 | Pixabay Music / YouTube Audio Library | Música de fondo | Licencias libres para videos (se registra cada pista) | manual | ~5–10 GB curados |
-| *(Opcional)* ACE-Step (música generada) | Música original sin derechos de terceros | Apache-2.0 | auto | **APAGADO** |
+| ACE-Step 1.5 XL (local, ver §6) | Música original generada en tu GPU | MIT | auto | ~10 GB de pesos |
 
 ## 8. Referencias de estilo (no se publican)
 
@@ -107,13 +132,13 @@ sigue siendo render 3D. Las marcadas **APAGADO** solo se activan si tú lo autor
 
 | Bloque | Tamaño aprox. |
 |---|---|
-| Programas y modelos de IA permitidos | 25 GB |
+| Programas y modelos de IA locales (voz, Whisper, SigLIP, música, movimiento) | 50–70 GB |
 | Poly Haven + ambientCG | 80–100 GB |
 | Personajes, anatomía y animaciones | 10–15 GB |
 | Sonido y música | 100 GB |
 | Índices y fotos de la biblioteca | 5 GB |
 | Proyectos (cuadros temporales, se limpian al entregar) | 20–50 GB por proyecto activo |
-| **Total inicial** | **≈ 250–300 GB** |
+| **Total inicial** | **≈ 300–350 GB** |
 
 ## 10. Lo que se descarta a propósito
 
@@ -123,4 +148,4 @@ sigue siendo render 3D. Las marcadas **APAGADO** solo se activan si tú lo autor
 | Generadores de video o imagen por IA | Tu requisito: todo debe ser render 3D |
 | Sitios de modelos sin licencia clara, modelos de videojuegos | Riesgo legal y archivos `.blend` con código que se ejecuta al abrir |
 | Datasets de entrenamiento (como los 14.75 GB del zip anterior) | No aportan nada a la imagen |
-| Túnel con servidor web propio en Colab | Las reglas de Colab lo prohíben en todos los runtimes (ver Arquitectura §2) |
+| Voz por API (Google Chirp, ElevenLabs) | Los modelos locales de 2026 están a la par de lo gratuito; ElevenLabs solo permite uso comercial en planes de pago |
