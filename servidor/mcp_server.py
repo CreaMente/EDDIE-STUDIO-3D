@@ -560,13 +560,18 @@ def biblioteca_listar() -> dict:
     animaciones = []
     if cat.exists():
         for a in json.loads(cat.read_text(encoding="utf-8"))["animaciones"]:
-            animaciones.append({k: a[k] for k in ("clave", "mixamo", "segundos", "en_lugar")})
+            animaciones.append({k: a.get(k) for k in ("clave", "mixamo", "segundos", "en_lugar", "categoria",
+                                                      "interaccion")})
     from estudio import elenco
 
     reparto = [{"nombre": n, "titulo": f["titulo"], "cara": "cara" in f,
                 "descargado": (elenco.carpeta(n) / ".completo").exists(), "credito": f["credito"]}
                for n, f in elenco.fichas().items()]
+    catalogo_obj = json.loads((config.REPO / "estudio" / "objetos.json").read_text(encoding="utf-8"))
+    escenarios = json.loads((config.REPO / "estudio" / "escenarios.json").read_text(encoding="utf-8"))
     return {"elenco": reparto, "personajes": personajes, "animaciones": animaciones,
+            "objetos": sorted(k for k in catalogo_obj if not k.startswith("_")),
+            "escenarios": sorted(k for k in escenarios if not k.startswith("_")),
             "nota": "elenco = protagonistas con cara animable (labios, expresiones): úsalos en las tomas con "
                     "personas. personajes = esqueletos Mixamo (remy) que sirven de base. Acciones que no estén "
                     "aquí: usa {\"kimodo\": \"descripción en inglés\"} en la secuencia."}
@@ -593,10 +598,10 @@ def movimiento_preparar() -> dict:
 
 @mcp.tool
 def toma_crear(proyecto: str, personaje: str, secuencia: list[dict], nombre: str = "toma",
-               motor: str = "CYCLES", calidad: str = "final", hdri: str = "brown_photostudio_02",
+               motor: str = "CYCLES", calidad: str = "final", hdri: str = "",
                piso: str = "laminate_floor_02", con_voz: bool = False, camara: dict | None = None,
                bloques: int = 3, expresion: str = "neutral", intensidad: float = 1.0, habla: bool = False,
-               frase: int = -1) -> dict:
+               frase: int = -1, escenario: str | dict = "estudio", objetos: list[dict] | None = None) -> dict:
     """Arma y renderiza una toma 3D a MP4 vertical 1080x1920.
 
     secuencia: lista de tramos, en orden. Cada tramo es uno de:
@@ -610,6 +615,16 @@ def toma_crear(proyecto: str, personaje: str, secuencia: list[dict], nombre: str
     motor: "CYCLES" (recomendado: usa la GPU con OptiX). "EEVEE" en Colab cae a CPU (sin EGL de NVIDIA).
     calidad: "borrador" (25 %, 16 muestras), "previa" (50 %, 32) o "final" (100 %, 64; Cycles: 128).
     personaje: del elenco ("rain", "snow": cara animable, ver biblioteca_listar) o un Mixamo ("remy").
+    escenario: "estudio", "habitacion", "dormitorio", "pasillo", "ascensor", "oficina", "hospital",
+      "exterior", "parque" (estudio/escenarios.json) o {"tipo": "oficina", "pared": "<textura Poly Haven>",
+      "piso": …, "luz": "calida"|"fluorescente", "muebles": ["escritorio", "planta", …]}. La sala se arma sola
+      alrededor del recorrido y de la cámara, con luces de techo y muebles contra las paredes.
+    Objetos e interacción: las animaciones con interacción (abrir_puerta, recoger_objeto, beber,
+      mensajear_celular, sentarse…) colocan su objeto solas: la puerta con la manija donde llega la mano y
+      girando con ella, la silla bajo la cadera, el celular o la taza en la mano. En un tramo se puede pedir
+      "objeto": "taza" (catálogo estudio/objetos.json) o {"tipo": "caja", "interaccion": "agarrar"|"soltar"|
+      "lanzar"|"mano"|"caja"|"sentarse"|"puerta"|"tocar"|"boton", "mano": "R"|"L"}; "objeto": false lo quita.
+    hdri: vacío = el del escenario (id de Poly Haven).
     expresion (elenco): neutral, alegria, dolor, sorpresa, miedo, tristeza, enojo, asco, pensativo;
       intensidad 0–1.5.
     habla + frase (elenco): mueve los labios con la frase n de la narración (voz/frases.json). Úsalo cuando
@@ -628,10 +643,14 @@ def toma_crear(proyecto: str, personaje: str, secuencia: list[dict], nombre: str
     d = _proyecto(proyecto)
     args = ["toma", "--proyecto", str(d), "--nombre", nombre, "--personaje", personaje,
             "--secuencia", json.dumps(secuencia, ensure_ascii=False), "--motor", motor.upper(),
-            "--muestras", str(muestras), "--escala", str(escala), "--hdri", hdri, "--piso", piso,
+            "--muestras", str(muestras), "--escala", str(escala), "--piso", piso,
             "--bloques", str(max(1, min(int(bloques), 8))),
             "--expresion", expresion, "--intensidad", str(intensidad), "--habla", "1" if habla else "0",
-            "--frase", str(int(frase))]
+            "--frase", str(int(frase)),
+            "--escenario", json.dumps(escenario, ensure_ascii=False) if isinstance(escenario, dict) else escenario,
+            "--objetos", json.dumps(objetos or [], ensure_ascii=False)]
+    if hdri:
+        args += ["--hdri", hdri]
     if con_voz:
         args += ["--audio", str(d / "voz" / "voz.wav")]
     if camara:
@@ -673,6 +692,35 @@ def video_montar(proyecto: str, plan: list[dict], textos: list[dict] | None = No
         return {"error": config.AVISO_DRIVE}
     return trabajos.iniciar(shlex.join([sys.executable, "-m", "estudio.montaje", *args]), f"montaje {nombre}",
                             str(config.REPO), entorno={"PYTHONPATH": _entorno()["PYTHONPATH"]})
+
+
+# ───────────────────────── director (historia completa) ─────────────────────────
+
+@mcp.tool
+def video_producir(proyecto: str, guion_tecnico: dict, calidad: str = "borrador", forzar: bool = False,
+                   solo: str = "") -> dict:
+    """Produce el video completo desde un guion técnico: todas las tomas + montaje, en un solo trabajo.
+    Requiere la voz del proyecto (voz_generar). Formato:
+      {"personaje": "rain", "escenario": "habitacion",
+       "tomas": [{"nombre": "t01", "frase": 0, "secuencia": [...], "camara": {"plano": ...},
+                  "expresion": "miedo", "habla": true, "escenario": ..., "objetos": [...]}, ...],
+       "textos": [{"texto": "DÍA 3", "frase": 4}], "musica": ""}
+    Cada toma entra en su frase («frase»), palabra («palabra») o segundo («inicio_s») y dura hasta la
+    siguiente: si su acción es más corta, sostiene la última pose. habla=true sincroniza los labios con lo
+    que se narra en ese momento. Las tomas sin cambios no se vuelven a renderizar (para iterar rápido);
+    forzar=true rehace todas y solo="t03,t05" rehace solo esas. calidad: borrador, previa o final.
+    Devuelve un id de trabajo; el resultado trae la ruta del video y el reporte de cada toma."""
+    d = _proyecto(proyecto)
+    if not config.drive_disponible():
+        return {"error": config.AVISO_DRIVE}
+    args = ["--proyecto", str(d), "--guion", json.dumps(guion_tecnico, ensure_ascii=False), "--calidad", calidad]
+    if forzar:
+        args.append("--forzar")
+    if solo:
+        args += ["--solo", solo]
+    return trabajos.iniciar(shlex.join([sys.executable, "-m", "estudio.director", *args]),
+                            f"producir video ({calidad})", str(config.REPO),
+                            entorno={"PYTHONPATH": _entorno()["PYTHONPATH"]})
 
 
 # ───────────────────────── arranque ─────────────────────────

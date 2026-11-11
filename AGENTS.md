@@ -144,6 +144,9 @@ No finjas un video terminado.
   - Opcionales por tramo: `"giro"` en grados (+ = izquierda) y `"mezcla"` (cuadros de fundido con el
     tramo anterior; por defecto 10, usa 15–20 si las poses de unión son distintas).
 - **Prioridad:** usa primero las animaciones de Mixamo, que tienen más calidad. Kimodo solo para lo que no exista.
+- **Catálogo:** `biblioteca_listar()` muestra cada animación con su `categoria` e `interaccion` (qué objeto
+  usa). El propietario puede descargar más con `herramientas/mixamo_descargar.js` (lista de ~118); al subirlas
+  a `_entrada/mixamo/animaciones/`, `mixamo_importar()` las agrega.
 - **Cámara:** `camara={"plano": …}` con planos al estilo de los videos de historias:
   - `primerisimo`: gran angular (16 mm) pegado a la cara, levemente inclinado. El plano estrella.
   - `primer_plano`, `medio`, `general`, `contrapicado` (desde abajo, imponente), `picado` (desde arriba,
@@ -156,6 +159,41 @@ No finjas un video terminado.
   compositor de Blender.
 - **Escenario:** `hdri` y `piso` son ids de Poly Haven. Se descargan solos y quedan en Drive.
 - **Créditos:** se escriben solos en `proyectos/<id>/CREDITOS.txt`.
+
+## Cualquier historia → video (el director)
+Cuando el propietario pida una historia («¿Qué pasaría si…?» o la que sea), hazla así:
+1. **Guion** con las reglas del formato (gancho, «tú», escalada en el tiempo, mecanismo real, giro) y datos
+   reales con fuente. `proyecto_crear` → `voz_generar` (revisa los criterios de la voz).
+2. **Guion técnico** (storyboard): lee `voz/frases.json` y decide, frase por frase, qué se VE:
+   - 2–3 tomas por frase larga (cambio de plano cada 1.5–3 s; corta en palabras con `"palabra": i`).
+   - Cada toma: `personaje` (elenco), `escenario`, `secuencia` de acciones (animaciones del catálogo,
+     Kimodo para lo que no exista), `camara` (plano + movimiento), `expresion` y `habla` en primeros planos.
+   - Acciones con objetos: usa las animaciones con interacción (`abrir_puerta`, `recoger_objeto`, `beber`,
+     `mensajear_celular`, `sentarse`, `cerrar_puerta`, `tocar_puerta`, `levantar_caja`…): el objeto se
+     coloca y se mueve solo. Para pedir otro objeto: `"objeto": "taza"` en el tramo.
+   - Continuidad: mismo personaje, misma ropa, mismo escenario dentro de una escena; la acción de una toma
+     continúa en la siguiente (si sale por la puerta, la toma siguiente empieza del otro lado).
+3. `video_producir(proyecto, guion_tecnico, calidad="borrador")` → trabajo. Al terminar mira el video con
+   `hoja_de_contacto` y cuadros sueltos con `ver_imagen`. Anota qué toma falla y por qué.
+4. Corrige solo esas tomas en el guion técnico y repite `video_producir(..., solo="t03,t07")`: las demás se
+   reutilizan. Cuando todo esté bien, `calidad="final"`.
+5. Reporta al propietario: ruta en `entregas/`, tiempos, qué falló y cómo lo arreglaste, y qué mejorarías.
+
+### Escenarios
+`escenario`: `estudio`, `habitacion`, `dormitorio`, `pasillo`, `ascensor`, `oficina`, `hospital`, `exterior`,
+`parque` (detalles y muebles en `estudio/escenarios.json`). O un dict para personalizar:
+`{"tipo": "habitacion", "pared": "brick_wall_02", "piso": "wood_floor", "luz": "fluorescente",
+"muebles": ["sofa", "television", "planta"]}` (texturas = ids de Poly Haven; muebles = `estudio/objetos.json`).
+- La sala se arma sola alrededor del recorrido y de la cámara: luces de techo, muebles contra las paredes.
+- Si hay una puerta, la puerta separa dos espacios: el personaje puede salir por ella.
+- «Paredes salvajes»: si una pared tapa a la cámara, deja de verse en cámara (como en un set de cine).
+
+### Movimientos de cámara (además del plano)
+`camara={"plano": "medio", "movimiento": …}`: `acercar` (por defecto), `alejar`, `orbita` (+ `grados`),
+`lateral` (+ `metros`), `grua` (+ `metros`, positivo sube), `empuje` (acercamiento rápido y dramático para
+revelaciones), `fijo`. Combina: plano general con `lateral` para seguir una caminata, `empuje` en el
+`primerisimo` de la frase de impacto, `orbita` en momentos de tensión, `grua` para abrir o cerrar escena.
+Para escenas con puerta: cámara de lado (`angulo` 90–110) o detrás (`angulo` 160–180).
 
 ## Video completo (Fase 4)
 1. **Guion y voz:** `proyecto_crear` → `voz_generar`. Lee `proyectos/<id>/voz/frases.json`: cada frase

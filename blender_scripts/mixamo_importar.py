@@ -254,8 +254,8 @@ def cmd_animaciones(a) -> None:
     t0 = time.time()
     bpy.ops.wm.read_factory_settings(use_empty=True)
     indice = {}
-    if a.indice and os.path.exists(a.indice):
-        with open(a.indice, encoding="utf-8") as f:
+    for ruta_indice in [x for x in (a.indice or "").split(",") if x and os.path.exists(x)]:
+        with open(ruta_indice, encoding="utf-8") as f:  # varios índices: uno por tanda de descargas
             for e in json.load(f).get("animaciones", []):
                 if e.get("estado") == "OK":
                     indice[e["archivo"]] = e
@@ -286,6 +286,8 @@ def cmd_animaciones(a) -> None:
                 "desplazamiento_m": [round(x, 3) for x in (p1 - p0)],
                 "en_lugar": bool(datos.get("en_lugar")) or (p1 - p0).xy.length < 0.05,
                 "busqueda": datos.get("busqueda"),
+                "categoria": datos.get("categoria"),
+                "interaccion": datos.get("interaccion"),
             })
             for o in nuevos:
                 bpy.data.objects.remove(o, do_unlink=True)

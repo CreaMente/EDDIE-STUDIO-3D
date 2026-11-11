@@ -92,9 +92,9 @@ def cmd_mixamo(a) -> None:
     fbxs = sorted(anims.glob("*.fbx"))
     blend = biblioteca_mixamo()
     if fbxs and (a.forzar or not blend.exists() or max(f.stat().st_mtime for f in fbxs) > blend.stat().st_mtime):
-        indice = anims / "mixamo_indice.json"
+        indices = ",".join(str(x) for x in sorted(anims.glob("mixamo_indice*.json")))
         r = correr(blender.comando(script, ["animaciones", "--carpeta_fbx", str(anims), "--salida", str(blend),
-                                            "--indice", str(indice) if indice.exists() else ""]),
+                                            "--indice", indices]),
                    f"{len(fbxs)} animaciones")
         hechos["animaciones"] = {"total": r["animaciones"], "errores": r["errores"], "claves": r["claves"]}
     print("RESULTADO_JSON: " + json.dumps({"ok": True, **hechos}, ensure_ascii=False), flush=True)
@@ -114,6 +114,87 @@ def acciones_kimodo(item: dict) -> tuple[list[str], list[float]]:
     if any(d > 10.0 or d < 0.5 for d in duraciones):
         raise SystemExit("Kimodo: cada acción debe durar entre 0.5 y 10 s; divide las largas en acciones más simples.")
     return [str(t) for t in textos], duraciones
+
+
+CATALOGO_OBJETOS = Path(__file__).resolve().parent / "objetos.json"
+ESCENARIOS = Path(__file__).resolve().parent / "escenarios.json"
+# interacción de una animación (catálogo Mixamo) → tipo de interacción y objeto por defecto
+INTERACCIONES = {"puerta": ("puerta", "puerta"), "tocar": ("tocar", "puerta"), "boton": ("boton", "boton"),
+                 "agarrar": ("agarrar", "botella"), "soltar": ("soltar", "libro"), "lanzar": ("lanzar", "botella"),
+                 "telefono": ("mano", "telefono"), "taza": ("mano", "taza"), "libro": ("mano", "libro"),
+                 "caja": ("caja", "caja"), "sentarse": ("sentarse", "silla"), "sentado": ("sentarse", "silla")}
+
+
+# Para animaciones importadas antes de que el catálogo guardara la interacción (primera tanda).
+INTERACCION_POR_CLAVE = {"abrir_puerta": "puerta:R", "cerrar_puerta": "puerta:R", "tocar_puerta": "tocar:R",
+                         "recoger_objeto": "agarrar:R", "beber": "taza:R", "mensajear_celular": "telefono:R",
+                         "hablar_telefono": "telefono:R", "sentarse": "sentarse", "sentado_reposo": "sentado",
+                         "levantarse_silla": "sentado", "dejar_objeto": "soltar:R", "lanzar": "lanzar:R",
+                         "presionar_boton": "boton:R", "levantar_caja": "caja", "cargar_caja": "caja"}
+
+
+def resolver_objeto(tipo: str) -> dict:
+    """Tipo del catálogo → cómo construirlo en Blender (procedural o glTF de Poly Haven ya descargado)."""
+    cat = json.loads(CATALOGO_OBJETOS.read_text(encoding="utf-8"))
+    if tipo not in cat:
+        raise SystemExit(f"Objeto «{tipo}» no está en el catálogo. Opciones: {sorted(k for k in cat if k[0] != '_')}")
+    d = dict(cat[tipo])
+    d["tipo"] = tipo
+    if "polyhaven" in d:
+        d["ruta"] = polyhaven.modelo(d["polyhaven"])
+    return d
+
+
+def interacciones_de(secuencia: list, tramos: list) -> list[dict]:
+    """Objetos de la toma: los que pide cada tramo («objeto») y los que trae la animación (catálogo)."""
+    catalogo = {}
+    cat_path = biblioteca_mixamo().with_suffix(".json")
+    if cat_path.exists():
+        catalogo = {x["clave"]: x for x in json.loads(cat_path.read_text(encoding="utf-8"))["animaciones"]}
+    salida = []
+    for item, tramo in zip(secuencia, tramos):
+        pedido = item.get("objeto")
+        inter = (catalogo.get(item.get("anim"), {}) or {}).get("interaccion") or \
+            INTERACCION_POR_CLAVE.get(item.get("anim", ""), "")
+        if pedido is False or (not pedido and not inter):
+            continue
+        clave, _, mano = inter.partition(":")
+        tipo_int, obj_def = INTERACCIONES.get(clave, ("mano", None))
+        if isinstance(pedido, dict):
+            tipo_int = pedido.get("interaccion", tipo_int)
+            mano = pedido.get("mano", mano)
+            obj = pedido.get("tipo", obj_def)
+        else:
+            obj = pedido or obj_def
+        if not obj:
+            continue
+        d = resolver_objeto(obj) if tipo_int not in ("puerta", "tocar", "boton") else {"tipo": obj}
+        d.update({"interaccion": tipo_int, "mano": mano or "R", "desde": tramo["inicio"], "hasta": tramo["fin"]})
+        salida.append(d)
+    return salida
+
+
+def resolver_escenario(pedido: str, escala: int) -> dict:
+    """«habitacion» o {"tipo": "habitacion", "pared": …, "muebles": […]} → configuración completa con las
+    texturas y modelos ya descargados (Poly Haven, CC0)."""
+    tipos = json.loads(ESCENARIOS.read_text(encoding="utf-8"))
+    conf = json.loads(pedido) if pedido.strip().startswith("{") else {"tipo": pedido or "estudio"}
+    tipo = conf.get("tipo", "estudio")
+    if tipo not in tipos:
+        raise SystemExit(f"Escenario «{tipo}» desconocido. Opciones: {sorted(k for k in tipos if k[0] != '_')}")
+    completo = {**tipos[tipo], **conf}
+    res = "2k" if escala >= 100 else "1k"
+    completo["texturas"] = {k: polyhaven.textura(completo[k], res) for k in ("pared", "piso") if completo.get(k)}
+    rutas = {}
+    for m in completo.get("muebles", []):
+        try:
+            d = resolver_objeto(m)
+            if d.get("ruta"):
+                rutas[m] = d["ruta"]
+        except Exception as e:  # un mueble que no baja no detiene la toma
+            log(f"   (mueble «{m}» omitido: {e})")
+    completo["muebles_rutas"] = rutas
+    return completo
 
 
 def transferir_en_bloques(animado: Path, blend_elenco: Path, ruta_ficha: Path, salida: Path, cuadros: int,
@@ -204,7 +285,7 @@ def cmd_toma(a) -> None:
     pasos["animacion"] = correr(blender.comando(blender.script("animar_mixamo.py"),
                                                 ["--personaje", str(personaje), "--biblioteca", ",".join(bibliotecas),
                                                  "--secuencia", json.dumps(secuencia), "--salida", str(animado),
-                                                 "--mezcla", str(a.mezcla)]),
+                                                 "--mezcla", str(a.mezcla), "--duracion_min", str(a.duracion_min)]),
                                 "encadenar animaciones")
 
     # 2b. Elenco: transferir al rig del personaje y animar su cara (labios, expresión, parpadeo).
@@ -229,9 +310,12 @@ def cmd_toma(a) -> None:
                                f"cara de {ficha['titulo']} ({a.expresion}{', habla' if a.habla else ''})")
         animado = transferido
 
-    # 3. Escenario (Poly Haven) y render.
+    # 3. Escenario (Poly Haven), objetos con los que interactúa y render.
+    escenario = resolver_escenario(a.escenario, a.escala)
+    objetos = interacciones_de(secuencia, pasos["animacion"]["tramos"]) + json.loads(a.objetos or "[]")
+    nombre_hdri = a.hdri or escenario.get("hdri") or "brown_photostudio_02"
     res_hdri = "4k" if a.escala >= 100 else "2k"
-    hdri = polyhaven.hdri(a.hdri, res_hdri)
+    hdri = polyhaven.hdri(nombre_hdri, res_hdri)
     piso = polyhaven.textura(a.piso, "2k" if a.escala >= 100 else "1k")
     cuadros = config.ruta_local("cuadros", proyecto.name, slug(a.nombre))
     args = ["--animado", str(animado), "--salida", str(carpeta / "toma.mp4"), "--hdri", str(hdri),
@@ -239,6 +323,7 @@ def cmd_toma(a) -> None:
             "--carpeta_cuadros", str(cuadros), "--bloques", str(a.bloques)]
     if ficha and ficha.get("cara", {}).get("ojos"):
         args += ["--ojos", ficha["cara"]["ojos"]]
+    args += ["--escenario", json.dumps(escenario, ensure_ascii=False), "--objetos", json.dumps(objetos, ensure_ascii=False)]
     camara = json.loads(a.camara or "{}")
     if "hdri_rotacion" in camara:
         args += ["--hdri_rotacion", str(camara.pop("hdri_rotacion"))]
@@ -249,7 +334,7 @@ def cmd_toma(a) -> None:
 
     creditos = proyecto / "CREDITOS.txt"
     lineas = set(creditos.read_text(encoding="utf-8").splitlines()) if creditos.exists() else set()
-    lineas |= {f"Iluminación HDRI «{a.hdri}» y textura «{a.piso}»: Poly Haven (polyhaven.com), CC0.",
+    lineas |= {f"Iluminación HDRI «{nombre_hdri}», texturas y modelos 3D: Poly Haven (polyhaven.com), CC0.",
                "Animaciones: Mixamo (Adobe), uso libre de regalías."}
     if ficha:
         lineas.add(f"Personaje: {ficha['credito']} — licencia CC-BY 4.0 (creativecommons.org/licenses/by/4.0).")
@@ -263,7 +348,8 @@ def cmd_toma(a) -> None:
     reporte = {"ok": True, "mp4": str(carpeta / "toma.mp4"), "carpeta": str(carpeta), "cuadros_png": str(cuadros),
                "segundos_video": pasos["animacion"]["segundos"], "secuencia": secuencia,
                "render": {k: pasos["render"].get(k) for k in ("motor", "resolucion", "cuadros", "segundos_por_cuadro",
-                                                              "segundos_render", "backend", "con_audio", "bloques")},
+                                                              "segundos_render", "backend", "con_audio", "bloques",
+                                                              "objetos", "escenario", "mirada")},
                "segundos_total": round(time.time() - t0, 1)}
     (carpeta / "reporte.json").write_text(json.dumps(reporte, indent=1, ensure_ascii=False), encoding="utf-8")
     print("RESULTADO_JSON: " + json.dumps(reporte, ensure_ascii=False), flush=True)
@@ -283,7 +369,10 @@ def main() -> None:
     pt.add_argument("--motor", default="CYCLES", choices=["EEVEE", "CYCLES"])
     pt.add_argument("--muestras", type=int, default=64)
     pt.add_argument("--escala", type=int, default=100)
-    pt.add_argument("--hdri", default="brown_photostudio_02")
+    pt.add_argument("--hdri", default="", help="vacío = el del escenario")
+    pt.add_argument("--escenario", default="estudio", help='nombre o JSON: {"tipo": "habitacion", "muebles": [...]}')
+    pt.add_argument("--objetos", default="[]", help="interacciones extra (JSON)")
+    pt.add_argument("--duracion_min", type=float, default=0.0)
     pt.add_argument("--piso", default="laminate_floor_02")
     pt.add_argument("--audio", default="")
     pt.add_argument("--camara", default="")

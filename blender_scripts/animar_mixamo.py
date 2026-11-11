@@ -44,6 +44,8 @@ def main() -> None:
     p.add_argument("--mezcla", type=int, default=10, help="cuadros de fundido entre animaciones")
     p.add_argument("--hoja", default="")
     p.add_argument("--cuadros_hoja", type=int, default=8)
+    p.add_argument("--duracion_min", type=float, default=0.0,
+                   help="segundos mínimos de la toma: si la secuencia es más corta se sostiene la última pose")
     a = p.parse_args(comun.argumentos())
     t0 = time.time()
 
@@ -139,6 +141,8 @@ def main() -> None:
         for fc in comun.curvas_accion(rig.animation_data.action):
             for k in fc.keyframe_points:
                 k.interpolation = "LINEAR"
+    if a.duracion_min and cuadro < int(round(a.duracion_min * 30)):
+        cuadro = int(round(a.duracion_min * 30))  # la última tira (HOLD_FORWARD) sostiene su pose
     esc.frame_start, esc.frame_end = 1, cuadro
 
     info = {"tramos": tramos, "cuadros": cuadro, "segundos": round(cuadro / 30, 2), "mezcla_cuadros": a.mezcla}

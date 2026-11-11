@@ -1,0 +1,18 @@
+{
+ "_nota": "Tipos de escenario. pared/piso = texturas CC0 de Poly Haven; hdri = cielo o entorno (en interiores solo aporta luz de relleno); luz = calida, fluorescente o neutra; muebles = del catálogo estudio/objetos.json, se colocan solos contra las paredes, lejos del recorrido.",
+ "estudio": {"hdri": "brown_photostudio_02", "piso": "laminate_floor_02", "muebles": []},
+ "habitacion": {"pared": "beige_wall_001", "piso": "laminate_floor_02", "luz": "calida", "alto": 2.7, "hdri": "brown_photostudio_02",
+                "muebles": ["sofa", "planta", "mesita", "lampara", "estante"]},
+ "dormitorio": {"pared": "beige_wall_002", "piso": "laminate_floor_02", "luz": "calida", "alto": 2.7, "hdri": "brown_photostudio_02",
+                "muebles": ["cama", "mesita", "lampara", "planta", "estante"]},
+ "pasillo": {"pared": "painted_plaster_wall", "piso": "concrete_floor_02", "luz": "fluorescente", "alto": 2.7, "hdri": "large_corridor",
+             "muebles": ["planta", "letrero_piso_mojado"]},
+ "ascensor": {"pared": "metal_plate", "piso": "metal_plate", "luz": "fluorescente", "alto": 2.4, "hdri": "large_corridor",
+              "muebles": []},
+ "oficina": {"pared": "beige_wall_002", "piso": "concrete_floor_painted", "luz": "fluorescente", "alto": 2.8, "hdri": "unfinished_office",
+             "muebles": ["escritorio", "silla_oficina", "planta", "estante", "laptop"]},
+ "hospital": {"pared": "painted_plaster_wall", "piso": "concrete_floor_painted", "luz": "fluorescente", "alto": 2.8, "hdri": "hospital_room",
+              "muebles": ["cama", "mesita", "carrito", "silla"]},
+ "exterior": {"piso": "asphalt_02", "luz": "sol", "hdri": "urban_street_01", "muebles": ["farola", "arbol", "banca"]},
+ "parque": {"piso": "forest_ground_04", "luz": "sol", "hdri": "sunny_vondelpark", "muebles": ["arbol", "banca", "farola"]}
+}

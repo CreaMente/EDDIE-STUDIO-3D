@@ -30,6 +30,7 @@ from mathutils import Euler, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import comun  # noqa: E402
+import set_escena  # noqa: E402
 
 
 def material_piso(texturas: dict, repeticion: float) -> bpy.types.Material:
@@ -165,7 +166,8 @@ def camara_seguimiento(rig, f_ini: int, f_fin: int, conf: dict) -> bpy.types.Obj
 
     conf: plano (preset) + cualquiera de objetivo, lente, distancia, altura_rel o altura (absoluta),
     angulo (grados alrededor del personaje; 0 = de frente), acercamiento, inclinacion, temblor (grados),
-    suavizado (cuadros), apertura (f-stop)."""
+    suavizado (cuadros), apertura (f-stop), movimiento: acercar (por defecto), alejar, orbita (grados),
+    lateral (metros), grua (metros; + sube), empuje (acercamiento rápido y dramático), fijo."""
     from mathutils import noise
 
     c = dict(PLANOS.get(conf.get("plano", "general"), PLANOS["general"]))
@@ -185,17 +187,35 @@ def camara_seguimiento(rig, f_ini: int, f_fin: int, conf: dict) -> bpy.types.Obj
     esc.collection.objects.link(cam)
     esc.camera = cam
     total = max(1, f_fin - f_ini)
-    ang = math.radians(float(c.get("angulo", 25)))
+    ang0 = math.radians(float(c.get("angulo", 25)))
     semilla = float(c.get("semilla", 7.3))
+    mov = c.get("movimiento", "acercar")
     for f in range(f_ini, f_fin + 1):
         t = (f - f_ini) / total
-        suave = t * t * (3 - 2 * t)  # el acercamiento arranca y termina suave
-        d = float(c["distancia"]) * (1 - float(c["acercamiento"]) * suave)
+        suave = t * t * (3 - 2 * t)  # arranca y termina suave
+        if mov == "empuje":  # golpe dramático: entra rápido y frena largo
+            suave = 1 - (1 - t) ** 3
+        d = float(c["distancia"])
+        ang = ang0
+        alt = float(c["altura_rel"])
+        lado = 0.0
+        if mov in ("acercar", "empuje"):
+            d *= 1 - float(c.get("acercamiento", 0.15) if mov == "acercar" else c.get("acercamiento_empuje", 0.45)) * suave
+        elif mov == "alejar":
+            d *= 1 + float(c.get("acercamiento", 0.15)) * 1.5 * suave
+        elif mov == "orbita":
+            ang = ang0 + math.radians(float(c.get("grados", 40))) * (suave - 0.5)
+        elif mov == "lateral":
+            lado = float(c.get("metros", 0.8)) * (suave - 0.5)
+        elif mov == "grua":
+            alt += float(c.get("metros", 0.9)) * (suave - 0.5)
         o = pos[f]
-        z = float(conf["altura"]) if "altura" in conf else o.z + float(c["altura_rel"])
+        z = (float(conf["altura"]) if "altura" in conf else o.z + alt)
         foco.location = o
         foco.keyframe_insert("location", frame=f)
-        cam.location = (o.x + d * math.sin(ang), o.y - d * math.cos(ang), z)
+        # posición alrededor del objetivo + desplazamiento lateral perpendicular a la mirada
+        cam.location = (o.x + d * math.sin(ang) + lado * math.cos(ang),
+                        o.y - d * math.cos(ang) + lado * math.sin(ang), z)
         cam.keyframe_insert("location", frame=f)
         mira = (o - Vector(cam.location)).to_track_quat("-Z", "Y")
         # Inclinación (plano holandés) + temblor de cámara en mano (ruido suave, no aleatorio por cuadro).
@@ -228,10 +248,12 @@ def main() -> None:
     p.add_argument("--bloques", type=int, default=1, help="procesos de render en paralelo (solo Cycles)")
     p.add_argument("--look", type=float, default=1.0, help="fuerza del acabado de cámara (0 = sin look)")
     p.add_argument("--ojos", default="", help="control de mirada del rig (elenco), p. ej. TGT-Eyes")
+    p.add_argument("--escenario", default='{"tipo": "estudio"}', help="JSON resuelto por estudio/tomas.py")
+    p.add_argument("--objetos", default="[]", help="JSON: interacciones con objetos (ver set_escena.py)")
     a = p.parse_args(comun.argumentos())
     t0 = time.time()
 
-    bpy.ops.wm.open_mainfile(filepath=a.animado)
+    bpy.ops.wm.open_mainfile(filepath=a.animado, load_ui=False, use_scripts=False)
     esc = bpy.context.scene
     rig = max((o for o in esc.objects if o.type == "ARMATURE"), key=lambda o: len(o.data.bones))
     for o in [o for o in esc.objects if o.type in ("CAMERA", "LIGHT")]:
@@ -241,14 +263,21 @@ def main() -> None:
         esc.frame_start, esc.frame_end = ini, fin
     f_ini, f_fin = esc.frame_start, esc.frame_end
 
+    escenario = json.loads(a.escenario or "{}")
+    tipo_esc = escenario.get("tipo", "estudio")
+    interior = tipo_esc != "estudio" and escenario.get("luz") != "sol"
     mundo_hdri(a.hdri, 1.0, a.hdri_rotacion)
-    bpy.ops.mesh.primitive_plane_add(size=40, location=(0, 0, 0))
-    piso = bpy.context.object
-    piso.data.materials.append(material_piso(json.loads(a.piso), repeticion=14))
+    if tipo_esc == "estudio":
+        bpy.ops.mesh.primitive_plane_add(size=40, location=(0, 0, 0))
+        piso = bpy.context.object
+        piso.data.materials.append(material_piso(json.loads(a.piso), repeticion=14))
     luz_d = bpy.data.lights.new("Principal", "AREA")
-    luz_d.energy, luz_d.size, luz_d.color = 350, 3.0, (1.0, 0.92, 0.82)
+    luz_d.energy, luz_d.size, luz_d.color = (90 if interior else 350), (1.5 if interior else 3.0), (1.0, 0.92, 0.82)
     luz = bpy.data.objects.new("Principal", luz_d)
-    luz.location = (3.0, -3.0, 4.0)
+    esc.frame_set(f_ini)
+    c0 = rig.matrix_world @ set_escena.hueso(rig, set_escena.CADERA).head
+    # Adentro, la luz principal va bajo el techo (afuera de la sala no ilumina nada).
+    luz.location = (c0.x + 1.4, c0.y - 1.4, 2.2) if interior else (3.0, -3.0, 4.0)
     esc.collection.objects.link(luz)
     apunta = luz.constraints.new("TRACK_TO")
     apunta.target = rig
@@ -258,10 +287,30 @@ def main() -> None:
     cam = camara_seguimiento(rig, f_ini, f_fin, conf_cam)
     modo_mirada = mirada(rig, a.ojos, cam, f_ini, f_fin, conf_cam.get("mirada", "camara"))
 
+    # Objetos con los que interactúa y escenario alrededor del recorrido (personaje + cámara).
+    objetos = json.loads(a.objetos or "[]")
+    registro_obj, puertas, info_esc = [], [], {}
+    if objetos or tipo_esc != "estudio":
+        tray = set_escena.trayectorias(rig, f_ini, f_fin)
+        for item in objetos:
+            set_escena.interaccion(rig, item, tray, f_ini, f_fin, registro_obj, puertas)
+        puntos = list(tray["cadera"].values())
+        puntos_cam, vistas = [], []
+        for f in range(f_ini, f_fin + 1, 3):
+            esc.frame_set(f)
+            pc = cam.matrix_world.to_translation()
+            puntos_cam.append(pc)
+            vistas += [(pc, tray["cadera"][f]), (pc, tray["cadera"][f] + Vector((0, 0, 0.6)))]
+        for pz in puertas:
+            puntos += [pz["bisagra"], pz["bisagra"] + pz["eje"] * pz["ancho"]]
+        set_escena.construir_escenario(escenario, puntos + puntos_cam, puertas, escenario.get("muebles_rutas", {}),
+                                       info_esc, vistas=vistas, puntos_camara=puntos_cam)
+
     r = esc.render
     r.resolution_x, r.resolution_y, r.resolution_percentage = 1080, 1920, a.escala
     r.fps = 30
-    info = {"motor": a.motor, "cuadros": f_fin - f_ini + 1, "mirada": modo_mirada,
+    info = {"motor": a.motor, "cuadros": f_fin - f_ini + 1, "mirada": modo_mirada, "objetos": registro_obj,
+            **info_esc,
             "resolucion": f"{1080 * a.escala // 100}x{1920 * a.escala // 100}"}
     if a.motor == "CYCLES":
         r.engine = "CYCLES"

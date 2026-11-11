@@ -64,3 +64,18 @@ def textura(identificador: str, resolucion: str = "2k") -> dict[str, str]:
             _bajar(archivos[clave][resolucion]["jpg"]["url"], destino)
         rutas[nombre] = str(destino)
     return rutas
+
+
+def modelo(identificador: str, resolucion: str = "1k") -> str:
+    """Modelo 3D (glTF con sus texturas) de Poly Haven, guardado en <DRIVE>/biblioteca/modelos/<id>/."""
+    carpeta = config.ruta_drive("biblioteca", "modelos", f"{identificador}_{resolucion}")
+    marca = carpeta / ".completo"
+    if not marca.exists():
+        archivos = _json(f"{API}/files/{identificador}")
+        g = archivos["gltf"][resolucion]["gltf"]
+        destino = carpeta / Path(g["url"]).name
+        _bajar(g["url"], destino)
+        for relativa, datos in g.get("include", {}).items():
+            _bajar(datos["url"], carpeta / relativa)
+        marca.write_text(destino.name, encoding="utf-8")
+    return str(carpeta / marca.read_text(encoding="utf-8").strip())

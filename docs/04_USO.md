@@ -54,6 +54,7 @@ Si la sesión se cae, vuelve a ejecutar la celda y pega la nueva configuración:
 | `elenco_preparar` | Descarga el elenco con cara animable (Blender Studio, CC-BY) |
 | `toma_crear` | Toma 3D animada (Mixamo + Kimodo → elenco con cara, labios y expresión) con planos estilo historia |
 | `video_montar` | Video final: tomas alineadas a la voz, texto en pantalla, música y -14 LUFS |
+| `video_producir` | Director: guion técnico → todas las tomas (escenarios, objetos, cámara) + montaje; rehace solo lo que cambió |
 
 ## Seguridad
 - **La clave del estudio protege el túnel.** Sin ella nadie puede usar el servidor.
