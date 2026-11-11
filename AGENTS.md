@@ -127,6 +127,9 @@ No finjas un video terminado.
       "segundos": [1.5, 2, 3, 2.5]}`.
     - Una acción por frase, de 1.5 a 4 s cada una (máximo 10). Termina el tramo en una pose parecida a la
       del tramo siguiente (por ejemplo, de pie si después viene una animación de pie).
+    - Para que las manos lleguen a una parte del cuerpo baja, pon antes una pose que la acerque
+      (medido: arrodillado con el torso recto, las manos no llegan a la rodilla). Mejor:
+      `"A person sits down on the floor."` → `"A person holds their left knee with both hands in pain."`.
     - Requiere `movimiento_preparar()` una vez y que el propietario haya aceptado la licencia de Meta Llama 3 en Hugging Face.
   - Opcionales por tramo: `"giro"` en grados (+ = izquierda) y `"mezcla"` (cuadros de fundido con el
     tramo anterior; por defecto 10, usa 15–20 si las poses de unión son distintas).

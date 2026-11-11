@@ -76,15 +76,21 @@ def main() -> None:
 
     cuadro = 1
     tramos = []
+    tiras = []
+    mezclas = []
     for i, clip in enumerate(secuencia):
-        accion = bpy.data.actions[clip["anim"]]
+        # Copia propia por tramo: así se puede ajustar el signo de sus cuaterniones sin tocar otros tramos.
+        accion = bpy.data.actions[clip["anim"]].copy()
+        accion.name = f"{i:02d}_{clip['anim']}"
+        comun.cuaterniones_continuos(accion)
         f0, f1 = accion.frame_range
         largo_ciclo = max(1.0, f1 - f0)
         objetivo = int(round(clip["segundos"] * 30)) if clip.get("segundos") else int(largo_ciclo)
         repeticiones = max(1.0, objetivo / largo_ciclo)
         mezcla = int(clip.get("mezcla", a.mezcla))  # fundido de entrada de este tramo
-        sig_mezcla = int(secuencia[i + 1].get("mezcla", a.mezcla)) if i < len(secuencia) - 1 else 0
         inicio = cuadro if i == 0 else cuadro - mezcla
+        if i > 0:
+            alinear_hemisferios(tiras[-1], accion, inicio + mezcla / 2, f0 + mezcla / 2)
         tira = pistas[i % 2].strips.new(f"{i:02d}_{clip['anim']}", int(inicio), accion)
         if objetivo < largo_ciclo:
             # Más corta que la animación: se usa solo el principio (sin repetir).
@@ -95,10 +101,8 @@ def main() -> None:
             tira.repeat = repeticiones
         tira.blend_type = "REPLACE"
         tira.extrapolation = "NOTHING"
-        if i > 0:
-            tira.blend_in = mezcla
-        if i < len(secuencia) - 1:
-            tira.blend_out = sig_mezcla
+        tiras.append(tira)
+        mezclas.append(mezcla)
         fin = int(tira.frame_end)
 
         if clip.get("giro"):
@@ -121,9 +125,18 @@ def main() -> None:
                        "avance_m_s": velocidad or 0})
         cuadro = fin
 
+    # Fundido cruzado: solo se funde la tira de la pista de ARRIBA (la de abajo queda a peso 1 durante el
+    # solape). Si se fundieran las dos a la vez, a mitad de la unión se colaría la pose de reposo (T-pose).
+    tiras[-1].extrapolation = "HOLD_FORWARD"  # el último cuadro no vuelve a la pose de reposo
+    for i in range(1, len(tiras)):
+        if i % 2 == 1:   # entra por la pista de arriba (B): aparece encima de la que sale
+            tiras[i].blend_in = mezclas[i]
+        else:            # entra por la de abajo (A): se desvanece la de arriba que sale
+            tiras[i - 1].blend_out = mezclas[i]
+
     # Movimiento del objeto lineal (velocidad constante al caminar).
     if rig.animation_data.action:
-        for fc in rig.animation_data.action.fcurves if hasattr(rig.animation_data.action, "fcurves") else []:
+        for fc in comun.curvas_accion(rig.animation_data.action):
             for k in fc.keyframe_points:
                 k.interpolation = "LINEAR"
     esc.frame_start, esc.frame_end = 1, cuadro
@@ -135,6 +148,26 @@ def main() -> None:
     bpy.ops.wm.save_as_mainfile(filepath=a.salida, compress=True)
     info.update({"salida": a.salida, "segundos_proceso": round(time.time() - t0, 1)})
     comun.resultado(info)
+
+
+def cuadro_local(tira, t: float) -> float:
+    """Cuadro de la acción que la tira muestra en el cuadro t de la línea de tiempo (con repeticiones)."""
+    a0, a1 = tira.action_frame_start, tira.action_frame_end
+    largo = max(1e-6, a1 - a0)
+    return a0 + ((t - tira.frame_start) / max(1e-6, tira.scale)) % largo
+
+
+def alinear_hemisferios(tira_previa, accion, t: float, local_nuevo: float) -> None:
+    """En el centro de la unión, cada hueso de la acción entrante debe estar en el mismo hemisferio que la
+    saliente (q y -q son la misma rotación, pero el NLA las mezcla canal por canal y daría un giro de 360°)."""
+    previas = comun.curvas_cuaternion(tira_previa.action)
+    for ruta, curvas in comun.curvas_cuaternion(accion).items():
+        if ruta not in previas:
+            continue
+        q_prev = comun.evaluar_cuaternion(previas[ruta], cuadro_local(tira_previa, t))
+        q_nuevo = comun.evaluar_cuaternion(curvas, local_nuevo)
+        if sum(x * y for x, y in zip(q_prev, q_nuevo)) < 0:
+            comun.invertir_curvas(curvas)
 
 
 def hoja_de_contacto(rig, ruta: str, f_ini: int, f_fin: int, n: int) -> str:

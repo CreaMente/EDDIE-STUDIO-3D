@@ -151,6 +151,7 @@ def main() -> None:
     destino.animation_data_create()
     destino.animation_data.action = bpy.data.actions.new("_retarget_tmp")
 
+    previo = {}  # último cuaternión horneado por hueso (para no saltar de q a -q)
     for f in range(f_ini, f_fin + 1):
         esc.frame_set(f)
         pose_arm = {}  # rotación de pose en espacio del armature destino
@@ -171,7 +172,11 @@ def main() -> None:
             else:
                 basis = rest_arm.inverted() @ pose_arm[b.name]
             pb = destino.pose.bones[b.name]
-            pb.rotation_quaternion = basis.normalized()
+            basis = basis.normalized()
+            if b.name in previo and previo[b.name].dot(basis) < 0:
+                basis.negate()
+            previo[b.name] = basis
+            pb.rotation_quaternion = basis
             pb.keyframe_insert("rotation_quaternion", frame=f)
 
         # Traslación de la cadera (en el espacio de reposo del hueso).
