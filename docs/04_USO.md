@@ -51,7 +51,8 @@ Si la sesión se cae, vuelve a ejecutar la celda y pega la nueva configuración:
 | `proyecto_crear`, `proyecto_listar` | Proyectos de video en tu Drive |
 | `voz_preparar`, `voz_crear_narrador`, `voz_elegir_narrador`, `voz_generar` | Voz fija del canal y narración verificada con tiempos por palabra |
 | `mixamo_importar`, `biblioteca_listar`, `movimiento_preparar` | Personajes y animaciones Mixamo; Kimodo (texto → movimiento) |
-| `toma_crear` | Toma 3D animada (Mixamo + Kimodo) renderizada en bloques paralelos a MP4 |
+| `elenco_preparar` | Descarga el elenco con cara animable (Blender Studio, CC-BY) |
+| `toma_crear` | Toma 3D animada (Mixamo + Kimodo → elenco con cara, labios y expresión) con planos estilo historia |
 | `video_montar` | Video final: tomas alineadas a la voz, texto en pantalla, música y -14 LUFS |
 
 ## Seguridad

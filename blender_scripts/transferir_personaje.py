@@ -89,6 +89,7 @@ def main() -> None:
     p.add_argument("--ficha", required=True)
     p.add_argument("--salida", required=True)
     p.add_argument("--max_cuadros", type=int, default=0, help="solo para pruebas rápidas")
+    p.add_argument("--rango", default="", help="ini-fin: solo esos cuadros (transferencia por bloques en paralelo)")
     a = p.parse_args(comun.argumentos())
     t0 = time.time()
     ficha = json.loads(open(a.ficha, encoding="utf-8").read())
@@ -116,6 +117,11 @@ def main() -> None:
     fuente.hide_render = True  # (no hide_viewport: un objeto oculto en la vista no se evalúa)
     bpy.context.view_layer.update()
 
+    # Las mallas no hacen falta para calcular la transferencia: ocultarlas evita deformarlas en cada
+    # actualización (mucho más rápido). Se restauran antes de guardar.
+    ocultas = [o for o in esc.objects if o.type in ("MESH", "CURVES", "CURVE") and not o.hide_viewport]
+    for o in ocultas:
+        o.hide_viewport = True
     fk = poner_fk(destino)
     destino.update_tag()  # sin esto Blender no vuelve a leer las propiedades y los drivers siguen en IK
     bpy.context.view_layer.update()
@@ -163,8 +169,13 @@ def main() -> None:
 
     previo: dict[str, Quaternion] = {}
     f0, f1 = esc.frame_start, esc.frame_end
+    if a.rango:  # el reposo se tomó siempre en el cuadro 1; aquí solo se limita qué cuadros se hornean
+        f0, f1 = (int(x) for x in a.rango.split("-"))
+    tiempos = {"frame_set": 0.0, "actualizar": 0.0, "calcular": 0.0}
     for f in range(f0, f1 + 1):
+        tt = time.time()
         esc.frame_set(f)
+        tiempos["frame_set"] += time.time() - tt
         Wf = fuente.matrix_world.copy()
         # Desplazamiento y giro de todo el personaje = los del objeto Mixamo (avance al caminar, «giro»).
         M = Wf @ Ws.inverted()
@@ -195,7 +206,9 @@ def main() -> None:
                 pb.keyframe_insert("rotation_quaternion", frame=f)
                 if t == torso:
                     pb.keyframe_insert("location", frame=f)
+            tt = time.time()
             bpy.context.view_layer.update()
+            tiempos["actualizar"] += time.time() - tt
 
     # Anclaje al piso: los dedos del personaje a la altura de los de la fuente (por cuadro).
     pb_torso = destino.pose.bones[torso]
@@ -231,8 +244,11 @@ def main() -> None:
             errores[d] = max(errores.get(d, 0.0), math.degrees(esperado.angle(dd)))
 
     bpy.data.objects.remove(fuente, do_unlink=True)
+    for o in ocultas:
+        o.hide_viewport = False
     info = {"personaje": ficha["nombre"], "controles": len(pares), "faltan": faltan, "propiedades_fk": len(fk),
-            "cuadros": f1 - f0 + 1, "escala_cadera": round(escala, 3),
+            "cuadros": f1 - f0 + 1, "escala_cadera": round(escala, 3), "niveles": len(orden),
+            "tiempos_s": {k: round(v, 1) for k, v in tiempos.items()},
             "anclaje_m": {"min": round(min(ajustes), 3), "max": round(max(ajustes), 3)},
             "error_max_grados": {k: round(v, 1) for k, v in sorted(errores.items(), key=lambda x: -x[1])}}
     os.makedirs(os.path.dirname(os.path.abspath(a.salida)), exist_ok=True)

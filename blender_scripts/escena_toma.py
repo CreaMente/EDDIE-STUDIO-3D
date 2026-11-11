@@ -134,6 +134,32 @@ def suavizar(pos: dict[int, Vector], ventana: int) -> dict[int, Vector]:
     return salida
 
 
+def mirada(rig, hueso_ojos: str, cam, f_ini: int, f_fin: int, modo: str) -> str:
+    """Dónde miran los ojos del personaje: «camara» (al espectador, como en los videos de historias) o
+    «frente» (hacia donde camina). Se añade una restricción al control de mirada del rig que copia la
+    posición de un objeto guía animado cuadro a cuadro (funciona sin importar cómo esté armado el rig)."""
+    if not hueso_ojos or hueso_ojos not in rig.pose.bones or modo not in ("camara", "frente"):
+        return "rig"
+    esc = bpy.context.scene
+    guia = bpy.data.objects.new("GuiaMirada", None)
+    esc.collection.objects.link(guia)
+    c = rig.pose.bones[hueso_ojos].constraints.new("COPY_LOCATION")
+    c.target = guia
+    cabeza = huesos_objetivo(rig, "cabeza")
+    for f in range(f_ini, f_fin + 1):
+        esc.frame_set(f)
+        h = sum(((rig.matrix_world @ pb.head) for pb in cabeza), Vector()) / len(cabeza)
+        h.z += 0.08  # a la altura de los ojos
+        if modo == "camara":
+            guia.location = cam.matrix_world.to_translation()
+        else:
+            adelante = rig.matrix_world.to_3x3() @ Vector((0, -1, 0))
+            adelante.z = 0
+            guia.location = h + adelante.normalized() * 1.5
+        guia.keyframe_insert("location", frame=f)
+    return modo
+
+
 def camara_seguimiento(rig, f_ini: int, f_fin: int, conf: dict) -> bpy.types.Object:
     """Cámara que sigue al objetivo con un acercamiento suave, inclinación y temblor de mano.
 
@@ -201,6 +227,7 @@ def main() -> None:
     p.add_argument("--carpeta_cuadros", default="", help="dónde escribir los PNG (mejor disco local)")
     p.add_argument("--bloques", type=int, default=1, help="procesos de render en paralelo (solo Cycles)")
     p.add_argument("--look", type=float, default=1.0, help="fuerza del acabado de cámara (0 = sin look)")
+    p.add_argument("--ojos", default="", help="control de mirada del rig (elenco), p. ej. TGT-Eyes")
     a = p.parse_args(comun.argumentos())
     t0 = time.time()
 
@@ -227,12 +254,14 @@ def main() -> None:
     apunta.target = rig
     apunta.track_axis, apunta.up_axis = "TRACK_NEGATIVE_Z", "UP_Y"
 
-    camara_seguimiento(rig, f_ini, f_fin, json.loads(a.camara or "{}"))
+    conf_cam = json.loads(a.camara or "{}")
+    cam = camara_seguimiento(rig, f_ini, f_fin, conf_cam)
+    modo_mirada = mirada(rig, a.ojos, cam, f_ini, f_fin, conf_cam.get("mirada", "camara"))
 
     r = esc.render
     r.resolution_x, r.resolution_y, r.resolution_percentage = 1080, 1920, a.escala
     r.fps = 30
-    info = {"motor": a.motor, "cuadros": f_fin - f_ini + 1,
+    info = {"motor": a.motor, "cuadros": f_fin - f_ini + 1, "mirada": modo_mirada,
             "resolucion": f"{1080 * a.escala // 100}x{1920 * a.escala // 100}"}
     if a.motor == "CYCLES":
         r.engine = "CYCLES"

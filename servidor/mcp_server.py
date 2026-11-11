@@ -617,7 +617,8 @@ def toma_crear(proyecto: str, personaje: str, secuencia: list[dict], nombre: str
     camara: {"plano": "primerisimo"} con planos predefinidos: general, medio, primer_plano, primerisimo
       (gran angular pegado a la cara), contrapicado, picado, detalle_pies, detalle_manos. Ajustes opcionales:
       angulo (grados alrededor; 0 = de frente), lente, distancia, altura_rel, acercamiento, inclinacion
-      (plano holandés, grados), temblor (cámara en mano, grados), objetivo (cabeza, pecho, cadera, pies, manos).
+      (plano holandés, grados), temblor (cámara en mano, grados), objetivo (cabeza, pecho, cadera, pies, manos),
+      mirada (elenco): "camara" (mira al espectador, por defecto) o "frente" (hacia donde va).
     con_voz: añade proyectos/<id>/voz/voz.wav como audio.
     bloques: procesos de render en paralelo sobre la GPU (Cycles). Los PNG quedan en el disco local
     (/content/eddie/cuadros/<proyecto>/<toma>/, ruta en «cuadros_png» del resultado) y el MP4 en Drive.

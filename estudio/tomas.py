@@ -116,6 +116,47 @@ def acciones_kimodo(item: dict) -> tuple[list[str], list[float]]:
     return [str(t) for t in textos], duraciones
 
 
+def transferir_en_bloques(animado: Path, blend_elenco: Path, ruta_ficha: Path, salida: Path, cuadros: int,
+                          titulo: str) -> dict:
+    """Pasa el movimiento al rig del elenco repartiendo los cuadros entre varios procesos de Blender
+    (cada cuadro se calcula por separado: escala con los núcleos de la máquina) y une las partes."""
+    nucleos = os.cpu_count() or 2
+    n = max(1, min(8, nucleos, cuadros // 30))
+    log(f"▶ pasar el movimiento a {titulo} ({cuadros} cuadros en {n} procesos)")
+    t0 = time.time()
+    cortes = [1 + round(cuadros * k / n) for k in range(n + 1)]
+    partes, procesos = [], []
+    for k in range(n):
+        parte = salida.with_name(f"{salida.stem}_parte{k}.blend")
+        cmd = blender.comando(blender.script("transferir_personaje.py"),
+                              ["--fuente", str(animado), "--personaje", str(blend_elenco), "--ficha", str(ruta_ficha),
+                               "--salida", str(parte), "--rango", f"{cortes[k]}-{cortes[k + 1] - 1}"])
+        partes.append(parte)
+        procesos.append(subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True))
+    resultados = []
+    for k, proc in enumerate(procesos):
+        salida_txt = proc.communicate()[0]
+        linea = next((x for x in salida_txt.splitlines() if x.startswith("RESULTADO_JSON: ")), None)
+        if proc.returncode != 0 or not linea:
+            raise RuntimeError(f"Falló la transferencia (parte {k}):\n" + "\n".join(salida_txt.splitlines()[-30:]))
+        resultados.append(json.loads(linea[len("RESULTADO_JSON: "):]))
+    union = correr(blender.comando(blender.script("unir_transferencias.py"),
+                                   ["--partes", ",".join(str(x) for x in partes), "--salida", str(salida)]),
+                   "unir las partes")
+    for x in partes:
+        x.unlink(missing_ok=True)
+    errores: dict = {}
+    for r in resultados:
+        for hueso, v in r.get("error_max_grados", {}).items():
+            errores[hueso] = max(errores.get(hueso, 0.0), v)
+    info = {"procesos": n, "cuadros": cuadros, "error_max_grados": errores,
+            "anclaje_m": {"min": min(r["anclaje_m"]["min"] for r in resultados),
+                          "max": max(r["anclaje_m"]["max"] for r in resultados)},
+            "signos_corregidos": union.get("signos_corregidos"), "segundos": round(time.time() - t0, 1)}
+    log(f"✔ movimiento en {titulo} ({info['segundos']} s; error máx. {max(errores.values(), default=0):.1f}°)")
+    return info
+
+
 def cmd_toma(a) -> None:
     t0 = time.time()
     proyecto = Path(a.proyecto) if os.path.isabs(a.proyecto) else config.ruta_drive("proyectos", a.proyecto)
@@ -171,10 +212,8 @@ def cmd_toma(a) -> None:
         blend_elenco = elenco.preparar(a.personaje, log)
         ruta_ficha = elenco.FICHAS / f"{ficha['nombre']}.json"
         transferido = carpeta / f"animado_{ficha['nombre']}.blend"
-        pasos["transferencia"] = correr(blender.comando(blender.script("transferir_personaje.py"),
-                                                        ["--fuente", str(animado), "--personaje", str(blend_elenco),
-                                                         "--ficha", str(ruta_ficha), "--salida", str(transferido)]),
-                                        f"pasar el movimiento a {ficha['titulo']}")
+        pasos["transferencia"] = transferir_en_bloques(animado, blend_elenco, ruta_ficha, transferido,
+                                                       int(pasos["animacion"]["cuadros"]), ficha["titulo"])
         args_cara = ["--animado", str(transferido), "--ficha", str(ruta_ficha), "--salida", str(transferido),
                      "--expresion", a.expresion, "--intensidad", str(a.intensidad)]
         if a.habla:
@@ -198,6 +237,8 @@ def cmd_toma(a) -> None:
     args = ["--animado", str(animado), "--salida", str(carpeta / "toma.mp4"), "--hdri", str(hdri),
             "--piso", json.dumps(piso), "--motor", a.motor, "--muestras", str(a.muestras), "--escala", str(a.escala),
             "--carpeta_cuadros", str(cuadros), "--bloques", str(a.bloques)]
+    if ficha and ficha.get("cara", {}).get("ojos"):
+        args += ["--ojos", ficha["cara"]["ojos"]]
     camara = json.loads(a.camara or "{}")
     if "hdri_rotacion" in camara:
         args += ["--hdri_rotacion", str(camara.pop("hdri_rotacion"))]

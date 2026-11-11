@@ -59,7 +59,7 @@ El estudio se expone como servidor MCP `eddie-studio` por un túnel **temporal**
 | 0. Conexión y entorno (túnel, servidor, Blender 5.2, render de prueba) | **Completa.** Medido en Colab (RTX PRO 6000 Blackwell 96 GB, driver 580): Cycles 1080x1920 a 128 muestras con OptiX = **2.18 s**; EEVEE = 20.8 s en frío (compilación de shaders) |
 | 1. Biblioteca base | **En marcha.** Personaje Mixamo «remy» + 30 animaciones Mixamo importadas (`mixamo_importar`). HDRI y texturas de Poly Haven automáticos |
 | 2. Voz y tiempos (VoxCPM2 + Whisper) | **Completa en GPU.** Narrador fijo `narrador` (candidata 2). Prueba: guion de 61 palabras → 18.98 s de voz en 31.5 s, 0 % de error, 61/61 palabras alineadas, 3.21 pal/s |
-| 3. Director de escena y animación | **Funciona en GPU.** `toma_crear` encadena Mixamo + Kimodo (texto → movimiento en ~23 s, retargeting a Mixamo con anclaje al piso) y renderiza a MP4. Pendiente: Audio2Face (cara) |
+| 3. Director de escena y animación | **Funciona en GPU** con Remy. **Nuevo (probado en CPU, falta GPU):** elenco Blender Studio con cara (rain, snow): movimiento transferido al rig (error ≤ 6°), labios por visemas del español, expresiones y parpadeo; planos estilo historia y look |
 | 4. Render por bloques y montaje | **Completa en GPU.** `bloques=3` (lo óptimo; 5 no mejora): 1080x1920 a 128 muestras en 0.85 s/cuadro (antes 1.56). Primer video completo (`20261111-1308-rodilla-rota-sin-medico`, 17.4 s, 4 tomas): tomas finales + montaje en 10 min 47 s, -14.04 LUFS |
 | 5. Recursos automáticos (APIs + IA 3D) | Pendiente |
 | 6. Look y estilo | Pendiente |
