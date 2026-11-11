@@ -259,16 +259,23 @@ def cmd_animaciones(a) -> None:
             for e in json.load(f).get("animaciones", []):
                 if e.get("estado") == "OK":
                     indice[e["archivo"]] = e
-    catalogo, errores = [], []
+    correcciones = {}
+    if a.correcciones and os.path.exists(a.correcciones):
+        with open(a.correcciones, encoding="utf-8") as f:
+            correcciones = {k: v for k, v in json.load(f).items() if not k.startswith("_")}
+    catalogo, errores, omitidas = [], [], []
     for nombre in sorted(os.listdir(a.carpeta_fbx)):
         if not nombre.lower().endswith(".fbx"):
+            continue
+        if nombre in correcciones and correcciones[nombre] is None:
+            omitidas.append(nombre)  # la búsqueda trajo otra animación: no se importa
             continue
         ruta = os.path.join(a.carpeta_fbx, nombre)
         try:
             nuevos = importar_fbx(ruta)
             rig = next(o for o in nuevos if o.type == "ARMATURE")
             accion = rig.animation_data.action
-            datos = indice.get(nombre, {})
+            datos = {**indice.get(nombre, {}), **(correcciones.get(nombre) or {})}
             clave = datos.get("nombre") or slug(os.path.splitext(nombre)[0])
             accion.name = clave
             accion.use_fake_user = True
@@ -302,7 +309,8 @@ def cmd_animaciones(a) -> None:
     with open(cat_ruta, "w", encoding="utf-8") as f:
         json.dump({"biblioteca": a.salida, "animaciones": catalogo, "errores": errores}, f, indent=1,
                   ensure_ascii=False)
-    comun.resultado({"ok": not errores, "animaciones": len(catalogo), "errores": errores, "catalogo": cat_ruta,
+    comun.resultado({"ok": not errores, "animaciones": len(catalogo), "errores": errores, "omitidas": omitidas,
+                     "catalogo": cat_ruta,
                      "blend": a.salida, "claves": [c["clave"] for c in catalogo],
                      "segundos": round(time.time() - t0, 1)})
 
@@ -320,6 +328,7 @@ def main() -> None:
     pa.add_argument("--carpeta_fbx", required=True)
     pa.add_argument("--salida", required=True)
     pa.add_argument("--indice", default="")
+    pa.add_argument("--correcciones", default="")
     a = p.parse_args(comun.argumentos())
     {"personaje": cmd_personaje, "animaciones": cmd_animaciones}[a.cmd](a)
 

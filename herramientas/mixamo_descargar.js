@@ -148,8 +148,32 @@
     ["push up", false, "flexiones", "ejercicio"],
     ["jumping jacks", false, "saltos_tijera", "ejercicio"],
   ];
-  // Las 30 primeras ya se descargaron en la primera tanda: se saltan (pon 0 para bajarlas todas).
-  const SALTAR_PRIMERAS = 30;
+  // ─────────────── REINTENTOS (tercera tanda) ───────────────
+  // Las que no se encontraron en la segunda tanda, con varios nombres alternativos (se prueba cada uno
+  // hasta que uno coincida bien). Con USAR_REINTENTOS = true solo se baja esta lista.
+  const LISTA_REINTENTOS = [
+    [["whisper", "telling a secret", "secret"], false, "susurrar", "conversacion"],
+    [["explain", "having a meeting", "talking with hands", "conversation"], false, "explicar", "conversacion"],
+    [["vomit", "throwing up", "nauseous", "sick"], false, "enfermo", "dolor"],
+    [["head pain", "holding head", "migraine", "headache"], false, "dolor_cabeza", "dolor"],
+    [["stomach", "belly ache", "hurt stomach"], false, "dolor_estomago", "dolor"],
+    [["shiver", "freezing", "cold"], false, "temblar_frio", "dolor"],
+    [["faint", "passing out", "collapse", "fainting"], false, "desmayarse", "caidas"],
+    [["knee pain", "hurt knee", "holding knee", "injured knee"], false, "sujetar_rodilla", "dolor"],
+    [["sitting thinking", "thoughtful sitting", "sit thinking", "sitting pondering"], false, "sentado_pensar", "sentado", "sentado"],
+    [["reading book", "sitting reading", "book reading", "read book"], false, "leer", "objetos", "libro:R"],
+    [["sitting texting", "texting sitting", "sitting phone", "phone sitting"], false, "sentado_celular", "sentado", "telefono:R"],
+    [["lying down", "laying down", "lie down", "sitting to lying"], false, "acostarse", "acostado"],
+    [["get out of bed", "waking up", "wake up", "getting out of bed"], false, "levantarse_cama", "acostado"],
+    [["knocking", "knock", "knock door"], false, "tocar_puerta", "objetos", "tocar:R"],
+    [["lifting", "box lifting", "pick up box", "lift box"], false, "levantar_caja", "objetos", "agarrar:R:caja"],
+    [["check watch", "checking watch", "looking at watch", "watch"], false, "mirar_reloj", "objetos"],
+    [["selfie", "taking photo", "taking picture", "photo"], false, "tomar_foto", "objetos", "telefono:R"],
+    [["scared run", "run away", "fleeing", "running scared"], true, "huir", "accion"],
+  ];
+  const USAR_REINTENTOS = true;
+  // Lista principal: las 30 primeras (primera tanda) se saltan; pon 0 para bajarlas todas.
+  const SALTAR_PRIMERAS = USAR_REINTENTOS ? 0 : 30;
   const PAUSA_MS = 1500;          // pausa entre animaciones (no saturar el servidor)
   const ESPERA_MAX_S = 120;       // tiempo máximo esperando a que Mixamo prepare cada archivo
 
@@ -172,7 +196,7 @@
     personaje = { id: p.primary_character_id, nombre: p.primary_character_name };
   } catch (e) { console.error("❌ No pude leer el personaje seleccionado:", e.message); return; }
   if (!personaje.id) { console.error("❌ Selecciona primero un personaje en la pestaña Characters."); return; }
-  console.log(`🎬 Personaje: ${personaje.nombre} (${personaje.id}). Descargando ${LISTA.length - SALTAR_PRIMERAS} animaciones…`);
+  console.log(`🎬 Personaje: ${personaje.nombre} (${personaje.id}). Descargando ${(USAR_REINTENTOS ? LISTA_REINTENTOS : LISTA).length - SALTAR_PRIMERAS} animaciones…`);
 
   // La página de Mixamo no permite leer el archivo desde el script (política de seguridad), así que se usa
   // la descarga normal del navegador: el archivo conserva el nombre que le pone Mixamo (p. ej. "Walking.fbx").
@@ -184,25 +208,36 @@
   }
 
   const resumen = [];
-  for (let i = SALTAR_PRIMERAS; i < LISTA.length; i++) {
-    const [busqueda, enLugar, corto, categoria, interaccion] = LISTA[i];
+  const L = USAR_REINTENTOS ? LISTA_REINTENTOS : LISTA;
+  for (let i = SALTAR_PRIMERAS; i < L.length; i++) {
+    const [busquedas, enLugar, corto, categoria, interaccion] = L[i];
     const num = String(i + 1).padStart(2, "0");
+    let busqueda = Array.isArray(busquedas) ? busquedas[0] : busquedas;
     try {
-      const res = await api(`https://www.mixamo.com/api/v1/products?page=1&limit=24&order=&type=Motion&query=${encodeURIComponent(busqueda)}`);
-      const lista = (res.results || []).filter((x) => x.type === "Motion");
-      if (!lista.length) throw new Error("sin resultados");
-      // Se elige el resultado que más palabras de la búsqueda contiene (el primero de Mixamo a veces es
-      // otra cosa: «limping» devolvía «Running Tired»). Si ninguno coincide bien, se salta y se avisa.
-      const palabras = busqueda.toLowerCase().split(/\s+/);
-      const puntos = (x) => {
-        const n = (x.name || "").toLowerCase();
-        if (n === busqueda.toLowerCase()) return 100;
-        return palabras.filter((w) => n.includes(w.replace(/ing$/, ""))).length;
+      // Se elige el resultado que más palabras COMPLETAS de la búsqueda contiene (antes «reading» trajo
+      // «Treading Water» y «holding knee» trajo «Holding Down»). Con varias búsquedas alternativas se
+      // prueba cada una hasta que una coincida bien.
+      const raiz = (w) => w.toLowerCase().replace(/(ing|s)$/, "");
+      const coincide = (nombre, consulta) => {
+        const n = (nombre || "").toLowerCase();
+        if (n === consulta.toLowerCase()) return 100;
+        const ws = n.split(/[^a-z0-9]+/).filter(Boolean).map(raiz);
+        return consulta.toLowerCase().split(/\s+/).filter((w) => ws.some((x) => x === raiz(w) || x.startsWith(raiz(w)) && raiz(w).length >= 4)).length;
       };
-      const ordenada = [...lista].sort((x, y) => puntos(y) - puntos(x));
-      const elegido = ordenada[0];
-      if (puntos(elegido) < Math.ceil(palabras.length / 2)) {
-        throw new Error("sin coincidencia clara; Mixamo ofrece: " + lista.slice(0, 4).map((x) => x.name).join(" | "));
+      let elegido = null, ofrecidos = [];
+      for (const q of (Array.isArray(busquedas) ? busquedas : [busquedas])) {
+        const res = await api(`https://www.mixamo.com/api/v1/products?page=1&limit=24&order=&type=Motion&query=${encodeURIComponent(q)}`);
+        const lista = (res.results || []).filter((x) => x.type === "Motion");
+        ofrecidos = ofrecidos.concat(lista.slice(0, 3).map((x) => x.name));
+        if (!lista.length) continue;
+        const n = q.split(/\s+/).length;
+        const minimo = n <= 2 ? n : n - 1;  // búsquedas cortas: todas las palabras
+        const mejor = [...lista].sort((x, y) => coincide(y.name, q) - coincide(x.name, q))[0];
+        if (coincide(mejor.name, q) >= minimo) { elegido = mejor; busqueda = q; break; }
+      }
+      if (!elegido) {
+        throw new Error(ofrecidos.length ? "sin coincidencia clara; Mixamo ofrece: " + [...new Set(ofrecidos)].slice(0, 6).join(" | ")
+                                         : "sin resultados");
       }
 
       const prod = await api(`https://www.mixamo.com/api/v1/products/${elegido.id}?similar=0&character_id=${personaje.id}`);
@@ -229,11 +264,11 @@
 
       const archivo = `${elegido.name}.fbx`;
       bajarArchivo(url);
-      console.log(`✅ ${num}/${LISTA.length} ${archivo}  →  ${corto}`);
+      console.log(`✅ ${num}/${L.length} ${archivo}  →  ${corto}`);
       resumen.push({ "#": num, busqueda, animacion: elegido.name, archivo, nombre: corto, en_lugar: enLugar,
                      categoria: categoria || "", interaccion: interaccion || "", estado: "OK" });
     } catch (e) {
-      console.error(`❌ ${num}/${LISTA.length} "${busqueda}": ${e.message}`);
+      console.error(`❌ ${num}/${L.length} "${busqueda}": ${e.message}`);
       resumen.push({ "#": num, busqueda, animacion: "-", archivo: "-", estado: "ERROR: " + e.message });
     }
     await dormir(PAUSA_MS);

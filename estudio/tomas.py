@@ -94,7 +94,8 @@ def cmd_mixamo(a) -> None:
     if fbxs and (a.forzar or not blend.exists() or max(f.stat().st_mtime for f in fbxs) > blend.stat().st_mtime):
         indices = ",".join(str(x) for x in sorted(anims.glob("mixamo_indice*.json")))
         r = correr(blender.comando(script, ["animaciones", "--carpeta_fbx", str(anims), "--salida", str(blend),
-                                            "--indice", indices]),
+                                            "--indice", indices, "--correcciones",
+                                            str(Path(__file__).resolve().parent / "mixamo_correcciones.json")]),
                    f"{len(fbxs)} animaciones")
         hechos["animaciones"] = {"total": r["animaciones"], "errores": r["errores"], "claves": r["claves"]}
     print("RESULTADO_JSON: " + json.dumps({"ok": True, **hechos}, ensure_ascii=False), flush=True)
@@ -130,7 +131,8 @@ INTERACCION_POR_CLAVE = {"abrir_puerta": "puerta:R", "cerrar_puerta": "puerta:R"
                          "recoger_objeto": "agarrar:R", "beber": "taza:R", "mensajear_celular": "telefono:R",
                          "hablar_telefono": "telefono:R", "sentarse": "sentarse", "sentado_reposo": "sentado",
                          "levantarse_silla": "sentado", "dejar_objeto": "soltar:R", "lanzar": "lanzar:R",
-                         "presionar_boton": "boton:R", "levantar_caja": "caja", "cargar_caja": "caja"}
+                         "presionar_boton": "boton:R", "levantar_caja": "agarrar:R:caja", "cargar_caja": "caja",
+                         "girar_con_caja": "caja"}
 
 
 def resolver_objeto(tipo: str) -> dict:
@@ -158,8 +160,11 @@ def interacciones_de(secuencia: list, tramos: list) -> list[dict]:
             INTERACCION_POR_CLAVE.get(item.get("anim", ""), "")
         if pedido is False or (not pedido and not inter):
             continue
-        clave, _, mano = inter.partition(":")
+        partes = inter.split(":")  # «agarrar:R» o «agarrar:R:caja» (tipo:mano:objeto)
+        clave, mano = partes[0], (partes[1] if len(partes) > 1 else "")
         tipo_int, obj_def = INTERACCIONES.get(clave, ("mano", None))
+        if len(partes) > 2 and partes[2]:
+            obj_def = partes[2]
         if isinstance(pedido, dict):
             tipo_int = pedido.get("interaccion", tipo_int)
             mano = pedido.get("mano", mano)

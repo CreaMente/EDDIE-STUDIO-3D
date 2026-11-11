@@ -1,0 +1,9 @@
+{
+ "_nota": "Correcciones a animaciones ya descargadas cuya búsqueda trajo otra cosa. null = no importar; un objeto = cambia nombre, categoría o interacción.",
+ "Treading Water.fbx": null,
+ "Holding Down.fbx": {"nombre": "sujetar_abajo", "categoria": "accion", "interaccion": ""},
+ "Laying Severe Cough.fbx": {"nombre": "toser_acostado", "categoria": "acostado"},
+ "Type To Sit.fbx": {"nombre": "escribir_a_sentado", "categoria": "sentado", "interaccion": "sentado"},
+ "Box Turn.fbx": {"nombre": "girar_con_caja", "categoria": "objetos", "interaccion": "caja"},
+ "Edge Slip.fbx": {"categoria": "caidas"}
+}
