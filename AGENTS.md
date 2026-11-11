@@ -187,7 +187,7 @@ no se pueden habilitar. Nunca se sobrescribe ni se borra nada: todo es reanudabl
    nuevo con una hoja de contacto antes de usarlo en un video.
 4. **Usar lo descargado** (`recursos_buscar("wooden chair", tipo="modelo")` da la clave):
    - modelo de Poly Haven como objeto o mueble: `"objeto": "Camera_01"`, `"muebles": ["ArmChair_01", …]`;
-   - materiales de ambientCG en paredes/piso: `{"tipo": "habitacion", "pared": "Bricks076", "piso": "WoodFloor051"}`;
+   - materiales de ambientCG en paredes/piso: `{"tipo": "habitacion", "pared": "Bricks076A", "piso": "WoodFloor051"}`;
    - HDRI: `hdri="sunflowers_puresky"` (Poly Haven) o `"acg:DaySkyHDRI072B"` (ambientCG).
    Si algo pedido aún no está en Drive, se baja en ese momento. Los créditos se escriben solos.
 5. **Sitios con login o que rechazan bots** (Quaternius en itch.io, Kenney, Mixamo): los bajas con tu navegador

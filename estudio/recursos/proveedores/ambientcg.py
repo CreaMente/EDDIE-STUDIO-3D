@@ -102,8 +102,10 @@ def asegurar(clave: str, tipo: str = "material", atributo: str = "2K-JPG", regis
             return c.parent
     d = leer_json(f"{API}?id={clave}&include=downloadData,displayData")
     a = next((x for x in d.get("foundAssets", []) if x["assetId"] == clave), None)
+    if not a and not clave[-1].isalpha():  # muchas series solo existen con variante: Bricks076A, B, C…
+        return asegurar(clave + "A", tipo, atributo, registro)
     if not a:
-        raise SystemExit(f"ambientCG no tiene «{clave}».")
+        raise SystemExit(f"ambientCG no tiene «{clave}». Búscalo con recursos_buscar (p. ej. «bricks»).")
     entrada = {"clave": clave, "tipo": tipo, "extra": {"zips": {z["attribute"]: {
         "url": z["downloadLink"], "tam": z.get("size"), "archivo": z.get("fileName")} for z in _zips(a)}}}
     perfil = next((k for k, v in PERFILES.items() if atributo in v[tipo]), "produccion")

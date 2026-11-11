@@ -1,5 +1,5 @@
 {
- "_nota": "Tipos de escenario. pared/piso = texturas CC0 de Poly Haven; hdri = cielo o entorno (en interiores solo aporta luz de relleno); luz = calida, fluorescente o neutra; muebles = del catálogo estudio/objetos.json (solo muebles de piso: laptop y lámpara de escritorio quedaban en el suelo), se colocan solos contra las paredes, lejos del recorrido. pared/piso también aceptan materiales de ambientCG (p. ej. Bricks076, WoodFloor051).",
+ "_nota": "Tipos de escenario. pared/piso = texturas CC0 de Poly Haven; hdri = cielo o entorno (en interiores solo aporta luz de relleno); luz = calida, fluorescente o neutra; muebles = del catálogo estudio/objetos.json (solo muebles de piso: laptop y lámpara de escritorio quedaban en el suelo), se colocan solos contra las paredes, lejos del recorrido. pared/piso también aceptan materiales de ambientCG (p. ej. Bricks076A, WoodFloor051).",
  "estudio": {"hdri": "brown_photostudio_02", "piso": "laminate_floor_02", "muebles": []},
  "habitacion": {"pared": "beige_wall_001", "piso": "laminate_floor_02", "luz": "calida", "alto": 2.7, "hdri": "brown_photostudio_02",
                 "muebles": ["sofa", "planta", "mesita", "estante"]},

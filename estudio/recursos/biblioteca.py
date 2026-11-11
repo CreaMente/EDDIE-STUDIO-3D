@@ -41,7 +41,11 @@ def textura(identificador: str, resolucion: str = "2k") -> dict[str, str]:
         from .proveedores import ambientcg
         atributo = "1K-JPG" if resolucion == "1k" else "2K-JPG"
         base = config.ruta_drive("biblioteca", "ambientcg", "material")
-        listo = base / f"{_acg(identificador)}_2K-JPG"  # el de producción sirve también para borradores
+        clave = _acg(identificador)
+        if not (base / f"{clave}_2K-JPG" / ".completo").exists() and (base / f"{clave}A_2K-JPG" / ".completo").exists():
+            clave += "A"  # «Bricks076» → «Bricks076A» (la serie solo existe con variantes)
+        identificador = clave
+        listo = base / f"{clave}_2K-JPG"  # el de producción sirve también para borradores
         carpeta = listo if (listo / ".completo").exists() else ambientcg.asegurar(_acg(identificador), "material", atributo)
         USADOS.add("ambientcg")
         return {k: v for k, v in _mapas(carpeta).items() if k in MAPAS_TOMA}

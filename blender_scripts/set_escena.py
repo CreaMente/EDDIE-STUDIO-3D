@@ -267,6 +267,20 @@ def altura_asiento(raiz) -> float:
     return mejor if mejor is not None else tam.z * 0.5
 
 
+def respaldo_claro(raiz) -> Vector | None:
+    """Dirección del respaldo si el mueble tiene uno claro (sillón, sofá, cama, banca); None si no (mesa)."""
+    pts = [o.matrix_world @ v.co for o in mallas_de(raiz) for v in o.data.vertices]
+    if not pts:
+        return None
+    zmin, zmax = min(p.z for p in pts), max(p.z for p in pts)
+    altos = [p for p in pts if p.z > zmin + (zmax - zmin) * 0.75]
+    c = sum(pts, Vector()) / len(pts)
+    d = sum(((p - c) for p in altos), Vector()) / len(altos)
+    d.z = 0
+    ancho = max(max(p.x for p in pts) - min(p.x for p in pts), max(p.y for p in pts) - min(p.y for p in pts))
+    return d.normalized() if d.length > 0.08 * max(ancho, 0.1) else None
+
+
 def lado_respaldo(raiz) -> Vector:
     """Dirección (horizontal) hacia el respaldo: donde está la parte alta del mueble."""
     pts = [o.matrix_world @ v.co for o in mallas_de(raiz) for v in o.data.vertices]
@@ -511,6 +525,21 @@ def construir_escenario(conf: dict, puntos: list, puertas: list, muebles_rutas: 
             else:
                 c = (lim[0] + lim[1]) / 2
                 lim[0], lim[1] = c - 1.2, c + 1.2
+        elif base.get("muebles") and puntos_camara:
+            # Con muebles: la sala crece 1.5 m detrás del personaje (visto desde la cámara), que es donde la
+            # cámara los ve. Ajustada al recorrido (0.6 m) no cabían y quedaban detrás de la cámara.
+            cams = [loc(p) for p in puntos_camara]
+            d = sum(pts, Vector((0, 0))) / len(pts) - sum(cams, Vector((0, 0))) / len(cams)
+            if d.length > 1e-3:
+                d.normalize()
+                if d.x > 0.3:
+                    lim[1] += 1.5
+                elif d.x < -0.3:
+                    lim[0] -= 1.5
+                if d.y > 0.3:
+                    lim[3] += 1.5
+                elif d.y < -0.3:
+                    lim[2] -= 1.5
         salas.append(lim)
 
     mat_piso = material_pbr("piso_escenario", tex.get("piso", {}), 2.0, (0.5, 0.45, 0.4))
@@ -518,7 +547,8 @@ def construir_escenario(conf: dict, puntos: list, puertas: list, muebles_rutas: 
         u0, u1, v0, v1 = salas[0]
         caja("Suelo", (80, 80, 0.05), mundo((u0 + u1) / 2, (v0 + v1) / 2, -0.03), mat_piso, col)
         info["escenario"] = {"tipo": tipo, "tam_m": [round(u1 - u0, 1), round(v1 - v0, 1)]}
-        _muebles(base, muebles_rutas, col, salas[0], mundo, giro, pts, [loc(p) for p in (puntos_camara or [])], True)
+        info["escenario"]["muebles"] = _muebles(base, muebles_rutas, col, salas[0], mundo, giro, pts,
+                                                [loc(p) for p in (puntos_camara or [])], True)
         return
 
     mat_pared = material_pbr("pared_escenario", tex.get("pared", {}), 1.5, (0.82, 0.78, 0.72))
@@ -596,7 +626,8 @@ def construir_escenario(conf: dict, puntos: list, puertas: list, muebles_rutas: 
         mundo_esc.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.2
     info["escenario"] = {"tipo": tipo, "espacios": [[round(x, 1) for x in s_] for s_ in salas], "alto_m": alto,
                          "luces": luces, "puertas": len(puertas), "paredes_salvajes": salvajes}
-    _muebles(base, muebles_rutas, col, salas[0], mundo, giro, pts, [loc(p) for p in (puntos_camara or [])])
+    info["escenario"]["muebles"] = _muebles(base, muebles_rutas, col, salas[0], mundo, giro, pts,
+                                            [loc(p) for p in (puntos_camara or [])])
 
 
 def _muebles(base, rutas, col, lim, mundo, giro, pts, pts_cam=(), exterior=False):
@@ -604,24 +635,62 @@ def _muebles(base, rutas, col, lim, mundo, giro, pts, pts_cam=(), exterior=False
     u0, u1, v0, v1 = lim
     lista = base.get("muebles", [])
     if not lista:
-        return
-    huecos = []
+        return []
+    puestos = []
+    huecos = []  # (u, v, giro, hacia la pared en u, en v)
     paso = 1.3
     for k in range(int((u1 - u0) / paso)):
         u = u0 + 0.7 + k * paso
-        huecos += [(u, v1 - 0.45, math.pi), (u, v0 + 0.45, 0.0)]
+        huecos += [(u, v1 - 0.45, math.pi, 0, 1), (u, v0 + 0.45, 0.0, 0, -1)]
     for k in range(int((v1 - v0) / paso)):
         v = v0 + 0.7 + k * paso
-        huecos += [(u0 + 0.45, v, -math.pi / 2), (u1 - 0.45, v, math.pi / 2)]
+        huecos += [(u0 + 0.45, v, -math.pi / 2, -1, 0), (u1 - 0.45, v, math.pi / 2, 1, 0)]
     lejos = lambda h, ps, d: not ps or min((Vector((h[0], h[1])) - p).length for p in ps) > d  # noqa: E731
     libres = [h for h in huecos if lejos(h, pts, 1.6 if exterior else 1.0) and lejos(h, list(pts_cam), 1.4)]
-    libres.sort(key=lambda h: -min((Vector((h[0], h[1])) - p).length for p in pts))
-    for nombre, (u, v, r) in zip(lista, libres):
+    # Primero los huecos que la cámara ve (detrás del personaje, mirando desde la cámara); después, los más
+    # lejanos del recorrido. Medido en GPU: ordenar solo por lejanía dejaba el sillón detrás de la cámara.
+    c_pts = sum((Vector(p) for p in pts), Vector((0, 0))) / len(pts) if pts else Vector((0, 0))
+    cams = list(pts_cam)
+    c_cam = sum((Vector(p) for p in cams), Vector((0, 0))) / len(cams) if cams else None
+
+    def angulo_cam(h):
+        """Ángulo entre la línea cámara→personaje y cámara→hueco (0 = justo detrás del personaje)."""
+        if c_cam is None:
+            return 0.0
+        a_, b_ = c_pts - c_cam, Vector((h[0], h[1])) - c_cam
+        if a_.length < 1e-6 or b_.length < 1e-6:
+            return 180.0
+        return math.degrees(a_.angle(b_))
+
+    def detras(h):
+        return c_cam is None or (Vector((h[0], h[1])) - c_cam).length > (c_pts - c_cam).length
+
+    # El cuadro vertical es angosto: primero lo que queda dentro de ~25° a los lados del personaje y detrás de
+    # él (se ve en el plano), en orden de cercanía a ese eje; después el resto, lejos del recorrido.
+    libres.sort(key=lambda h: (not (detras(h) and angulo_cam(h) < 25), angulo_cam(h) if detras(h) else 180,
+                               -min((Vector((h[0], h[1])) - p).length for p in pts) if pts else 0))
+    for nombre, (u, v, r, du, dv) in zip(lista, libres):
         if nombre not in rutas:
             continue
         ob = crear_objeto({"ruta": rutas[nombre], "tipo": nombre})
         ob.matrix_world = Matrix.Translation(mundo(u, v)) @ giro @ Matrix.Rotation(r, 4, "Z")
+        # Respaldo contra la pared: se mide dónde está la parte alta del mueble y se gira hasta que
+        # apunte a la pared (el giro fijo dejaba sillones y sofás mirando a la pared).
+        bpy.context.view_layer.update()
+        respaldo = respaldo_claro(ob)
+        if respaldo is not None:
+            pared = mundo(u + du, v + dv) - mundo(u, v)
+            pared.z = 0
+            if pared.length > 1e-6:
+                ang = math.atan2(respaldo.x * pared.y - respaldo.y * pared.x, respaldo.dot(pared.normalized()))
+                pos = ob.matrix_world.to_translation()
+                ob.matrix_world = Matrix.Translation(pos) @ Matrix.Rotation(ang, 4, "Z") @ \
+                    Matrix.Translation(-pos) @ ob.matrix_world
+        puestos.append({"mueble": nombre, "u": round(u, 2), "v": round(v, 2),
+                        "en_cuadro": bool(detras((u, v)) and angulo_cam((u, v)) < 25),
+                        "respaldo_a_la_pared": respaldo is not None})
         for o in [ob] + list(ob.children_recursive):
             for c in o.users_collection:
                 c.objects.unlink(o)
             col.objects.link(o)
+    return puestos
