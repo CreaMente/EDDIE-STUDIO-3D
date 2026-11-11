@@ -148,6 +148,8 @@
     ["push up", false, "flexiones", "ejercicio"],
     ["jumping jacks", false, "saltos_tijera", "ejercicio"],
   ];
+  // Las 30 primeras ya se descargaron en la primera tanda: se saltan (pon 0 para bajarlas todas).
+  const SALTAR_PRIMERAS = 30;
   const PAUSA_MS = 1500;          // pausa entre animaciones (no saturar el servidor)
   const ESPERA_MAX_S = 120;       // tiempo máximo esperando a que Mixamo prepare cada archivo
 
@@ -170,7 +172,7 @@
     personaje = { id: p.primary_character_id, nombre: p.primary_character_name };
   } catch (e) { console.error("❌ No pude leer el personaje seleccionado:", e.message); return; }
   if (!personaje.id) { console.error("❌ Selecciona primero un personaje en la pestaña Characters."); return; }
-  console.log(`🎬 Personaje: ${personaje.nombre} (${personaje.id}). Descargando ${LISTA.length} animaciones…`);
+  console.log(`🎬 Personaje: ${personaje.nombre} (${personaje.id}). Descargando ${LISTA.length - SALTAR_PRIMERAS} animaciones…`);
 
   // La página de Mixamo no permite leer el archivo desde el script (política de seguridad), así que se usa
   // la descarga normal del navegador: el archivo conserva el nombre que le pone Mixamo (p. ej. "Walking.fbx").
@@ -182,7 +184,7 @@
   }
 
   const resumen = [];
-  for (let i = 0; i < LISTA.length; i++) {
+  for (let i = SALTAR_PRIMERAS; i < LISTA.length; i++) {
     const [busqueda, enLugar, corto, categoria, interaccion] = LISTA[i];
     const num = String(i + 1).padStart(2, "0");
     try {
