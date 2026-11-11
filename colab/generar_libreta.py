@@ -88,7 +88,8 @@ if _claves.get("GITHUB_TOKEN"):
         f"https://x-access-token:{_claves['GITHUB_TOKEN']}@github.com\n")
     _git("config", "--global", "credential.helper", "store")
 if os.path.isdir(f"{DESTINO}/.git"):
-    _git("fetch", "--depth", "50", "origin", RAMA, cwd=DESTINO)
+    # refspec explícito: el clon inicial es de una sola rama y sin esto otra RAMA no tiene «origin/RAMA»
+    _git("fetch", "--depth", "50", "origin", f"+refs/heads/{RAMA}:refs/remotes/origin/{RAMA}", cwd=DESTINO)
     _git("checkout", "-B", RAMA, f"origin/{RAMA}", cwd=DESTINO)
     _git("reset", "--hard", f"origin/{RAMA}", cwd=DESTINO)
 else:
