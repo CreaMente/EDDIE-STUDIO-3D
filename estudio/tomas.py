@@ -81,7 +81,11 @@ KIMODO_BIB = Path(__file__).resolve().parent / "kimodo_biblioteca.json"
 def catalogo_kimodo() -> dict:
     """Acciones de la biblioteca Kimodo ya generadas: {clave: {segundos, categoria, interaccion, blend}}."""
     ruta = config.ruta_drive("biblioteca", "animaciones", "kimodo", "kimodo.json")
-    return json.loads(ruta.read_text(encoding="utf-8")) if ruta.exists() else {}
+    cat = json.loads(ruta.read_text(encoding="utf-8")) if ruta.exists() else {}
+    for v in cat.values():  # relativo a la carpeta actual: sirve aunque la carpeta se copie a otra cuenta
+        if v.get("blend"):
+            v["blend"] = str(ruta.parent / Path(v["blend"]).name)
+    return cat
 
 
 def catalogo_extra() -> dict:
