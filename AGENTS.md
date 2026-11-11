@@ -19,6 +19,9 @@ El estudio se expone como servidor MCP `eddie-studio` por un túnel **temporal**
 
 ## Cómo trabajar
 1. **Empieza cada sesión con `estado_sistema`**: GPU, Blender, Drive, claves presentes y túnel.
+   - Si `drive_montado` es `false`: espera 1 minuto y vuelve a llamar `estado_sistema` (la celda principal
+     lo vuelve a montar sola). Si sigue en `false`, pásale al propietario el texto de `drive_aviso`.
+     No intentes montar Drive desde el servidor: Colab no lo permite.
 2. **Lee antes de actuar:**
    - `leer_documento("docs/01_ARQUITECTURA.md")`: flujo, fases y criterios de aceptación.
    - `leer_documento("docs/02_INVENTARIO.md")`: modelos y recursos permitidos, con su licencia.

@@ -462,6 +462,8 @@ def proyecto_listar() -> dict:
 
 def _trabajo_ia(entorno: str, modulo: str, args: list[str], nombre: str) -> dict:
     """Trabajo en segundo plano: asegura el entorno aislado y corre el módulo de IA dentro de él."""
+    if not config.drive_disponible():
+        return {"error": config.AVISO_DRIVE}
     asegurar = (f'"{sys.executable}" -c "from estudio import entornos; '
                 f"entornos.asegurar('{entorno}')\"")
     cmd = asegurar + " && " + shlex.join(entornos.comando(entorno, modulo, *args))
@@ -531,6 +533,8 @@ def voz_generar(proyecto: str, narrador: str, tomas: int = 3, max_tomas: int = 6
 
 def _trabajo_estudio(args: list[str], nombre: str) -> dict:
     """Trabajo en segundo plano con el orquestador de tomas (python -m estudio.tomas …)."""
+    if not config.drive_disponible():
+        return {"error": config.AVISO_DRIVE}
     return trabajos.iniciar(shlex.join([sys.executable, "-m", "estudio.tomas", *args]), nombre, str(config.REPO),
                             entorno={"PYTHONPATH": _entorno()["PYTHONPATH"]})
 

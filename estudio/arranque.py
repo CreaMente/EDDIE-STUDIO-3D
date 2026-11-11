@@ -148,13 +148,49 @@ def iniciar(instalar_blender: bool = True, preferir_ngrok: bool = False, panel: 
     return resultado
 
 
-def vigilar(intervalo: float = 5.0) -> None:
-    """Mantiene viva la celda: muestra el registro y relanza el túnel si se cae."""
+def _revisar_drive(estado: dict) -> None:
+    """Si Drive se desmontó (Colab lo hace a veces en sesiones largas), lo vuelve a montar.
+
+    Tiene que hacerse aquí, en el proceso de la libreta: desde el servidor (subproceso) Colab no lo permite.
+    """
+    if config.drive_disponible():
+        if estado.get("caido"):
+            _log("✔ Google Drive vuelve a estar disponible.")
+        estado["caido"] = False
+        return
+    if estado.get("caido"):
+        return  # ya se intentó; no repetir en bucle
+    estado["caido"] = True
+    _log("⚠️  Google Drive se desmontó. Volviendo a montarlo…")
+    try:
+        from . import drive as edrive
+
+        edrive.montar(forzar=True)
+        for _ in range(60):
+            if config.drive_disponible():
+                break
+            time.sleep(1)
+    except Exception as e:  # noqa: BLE001
+        _log(f"No se pudo montar automáticamente: {e}")
+    if config.drive_disponible():
+        estado["caido"] = False
+        _log("✔ Drive montado otra vez. Antigravity puede continuar.")
+    else:
+        _log("❌ " + config.AVISO_DRIVE)
+
+
+def vigilar(intervalo: float = 5.0, revisar_drive_cada: float = 30.0) -> None:
+    """Mantiene viva la celda: muestra el registro, relanza el túnel si se cae y vuelve a montar Drive."""
     log = config.ruta_local("logs", "servidor.log")
     pos = log.stat().st_size if log.exists() else 0
-    _log("Vigilando (detén la celda para apagar el estudio).")
+    estado_drive: dict = {}
+    ultima_revision = 0.0
+    _log("Vigilando (detén la celda para apagar el estudio). No cierres esta pestaña.")
     try:
         while True:
+            if time.time() - ultima_revision >= revisar_drive_cada:
+                ultima_revision = time.time()
+                _revisar_drive(estado_drive)
             if log.exists() and log.stat().st_size > pos:
                 with open(log, "r", errors="replace") as f:
                     f.seek(pos)

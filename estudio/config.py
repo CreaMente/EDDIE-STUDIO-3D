@@ -70,6 +70,20 @@ def ruta_privada(*partes: str) -> Path:
     return PRIVADO.joinpath(*partes)
 
 
+def drive_disponible() -> bool:
+    """True si la carpeta de trabajo en Drive se puede leer (Drive montado y sano)."""
+    try:
+        return DRIVE.is_dir() and PRIVADO.parent.is_dir()
+    except OSError:  # «Transport endpoint is not connected» cuando el montaje se rompe
+        return False
+
+
+AVISO_DRIVE = ("Google Drive no está montado en Colab. Si la celda principal sigue corriendo, se vuelve a "
+               "montar sola en menos de un minuto. Si no: en Colab detén la celda principal (■), crea una "
+               "celda nueva y ejecuta: from google.colab import drive; "
+               "drive.mount('/content/drive', force_remount=True)")
+
+
 def ruta_drive(*partes: str) -> Path:
     return DRIVE.joinpath(*partes)
 

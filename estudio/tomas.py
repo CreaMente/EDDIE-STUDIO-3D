@@ -201,6 +201,8 @@ def main() -> None:
     pt.add_argument("--camara", default="")
     pt.add_argument("--mezcla", type=int, default=10)
     a = p.parse_args()
+    if not config.drive_disponible():
+        raise SystemExit(config.AVISO_DRIVE)
     {"mixamo": cmd_mixamo, "toma": cmd_toma}[a.cmd](a)
 
 
