@@ -563,6 +563,11 @@ def biblioteca_listar() -> dict:
             animaciones.append({k: a.get(k) for k in ("clave", "mixamo", "segundos", "en_lugar", "categoria",
                                                       "interaccion")})
     from estudio import elenco
+    from estudio.tomas import catalogo_kimodo
+
+    for clave, k in catalogo_kimodo().items():  # acciones generadas con Kimodo y guardadas con nombre
+        animaciones.append({"clave": clave, "mixamo": None, "origen": "kimodo", "segundos": k.get("segundos"),
+                            "en_lugar": False, "categoria": k.get("categoria"), "interaccion": k.get("interaccion")})
 
     reparto = [{"nombre": n, "titulo": f["titulo"], "cara": "cara" in f,
                 "descargado": (elenco.carpeta(n) / ".completo").exists(), "credito": f["credito"]}
@@ -575,6 +580,19 @@ def biblioteca_listar() -> dict:
             "nota": "elenco = protagonistas con cara animable (labios, expresiones): úsalos en las tomas con "
                     "personas. personajes = esqueletos Mixamo (remy) que sirven de base. Acciones que no estén "
                     "aquí: usa {\"kimodo\": \"descripción en inglés\"} en la secuencia."}
+
+
+@mcp.tool
+def kimodo_biblioteca(nombre: str = "", forzar: bool = False) -> dict:
+    """Genera con Kimodo (una sola vez) las acciones que Mixamo no tiene, definidas en
+    estudio/kimodo_biblioteca.json (temblar_frio, desmayarse, sujetar_rodilla, dolor_cabeza, leer,
+    mirar_reloj, tomar_foto, huir, tocar_puerta…), y las guarda en la biblioteca con su nombre: después se
+    usan como cualquier animación ({"anim": "desmayarse"}). nombre = claves separadas por coma (vacío = todas
+    las que falten). Requiere movimiento_preparar(). Devuelve un id de trabajo."""
+    if not config.drive_disponible():
+        return {"error": config.AVISO_DRIVE}
+    args = ["kimodo_biblioteca"] + (["--nombre", nombre] if nombre else []) + (["--forzar"] if forzar else [])
+    return _trabajo_estudio(args, "kimodo: biblioteca")
 
 
 @mcp.tool

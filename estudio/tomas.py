@@ -74,6 +74,53 @@ def biblioteca_mixamo() -> Path:
     return config.ruta_drive("biblioteca", "animaciones", "mixamo.blend")
 
 
+KIMODO_BIB = Path(__file__).resolve().parent / "kimodo_biblioteca.json"
+
+
+def catalogo_kimodo() -> dict:
+    """Acciones de la biblioteca Kimodo ya generadas: {clave: {segundos, categoria, interaccion, blend}}."""
+    ruta = config.ruta_drive("biblioteca", "animaciones", "kimodo", "kimodo.json")
+    return json.loads(ruta.read_text(encoding="utf-8")) if ruta.exists() else {}
+
+
+def cmd_kimodo_biblioteca(a) -> None:
+    """Genera con Kimodo (una sola vez) las acciones de estudio/kimodo_biblioteca.json que falten y las
+    deja en la biblioteca, adaptadas al esqueleto Mixamo, listas para usar como {"anim": clave}."""
+    definiciones = {k: v for k, v in json.loads(KIMODO_BIB.read_text(encoding="utf-8")).items() if k[0] != "_"}
+    carpeta = config.ruta_drive("biblioteca", "animaciones", "kimodo")
+    carpeta.mkdir(parents=True, exist_ok=True)
+    cat = catalogo_kimodo()
+    esqueleto = ruta_personaje(a.esqueleto)
+    pedidas = [x.strip() for x in a.nombre.split(",") if x.strip()] or list(definiciones)
+    hechas, fallas = [], {}
+    for clave in pedidas:
+        if clave not in definiciones:
+            fallas[clave] = "no está en estudio/kimodo_biblioteca.json"
+            continue
+        if clave in cat and Path(cat[clave]["blend"]).exists() and not a.forzar:
+            continue
+        d = definiciones[clave]
+        try:
+            entornos.asegurar("movimiento", log)
+            r = correr(entornos.comando("movimiento", "ia.movimiento", "generar", "--textos", json.dumps(d["textos"]),
+                                        "--duraciones", json.dumps(d["segundos"]), "--salida", str(carpeta),
+                                        "--nombre", clave, "--semilla", str(d.get("semilla", 42))),
+                       f"Kimodo: {clave}")
+            blend = carpeta / f"{clave}.blend"
+            correr(blender.comando(blender.script("animar_personaje.py"),
+                                   ["--personaje", str(esqueleto), "--bvh", r["bvh"], "--salida", str(blend),
+                                    "--accion", clave]), f"adaptar {clave} al esqueleto")
+            cat[clave] = {"clave": clave, "origen": "kimodo", "segundos": r.get("duracion_s"),
+                          "categoria": d.get("categoria", ""), "interaccion": d.get("interaccion", ""),
+                          "textos": d["textos"], "blend": str(blend)}
+            (carpeta / "kimodo.json").write_text(json.dumps(cat, indent=1, ensure_ascii=False), encoding="utf-8")
+            hechas.append(clave)
+        except Exception as e:  # una que falle no detiene las demás
+            fallas[clave] = str(e)[-600:]
+    print("RESULTADO_JSON: " + json.dumps({"ok": not fallas, "generadas": hechas, "fallas": fallas,
+                                           "total": len(cat)}, ensure_ascii=False), flush=True)
+
+
 # ───────────────────────── importación Mixamo ─────────────────────────
 
 def cmd_mixamo(a) -> None:
@@ -149,17 +196,27 @@ def resolver_objeto(tipo: str) -> dict:
 
 def interacciones_de(secuencia: list, tramos: list) -> list[dict]:
     """Objetos de la toma: los que pide cada tramo («objeto») y los que trae la animación (catálogo)."""
-    catalogo = {}
+    catalogo = dict(catalogo_kimodo())
     cat_path = biblioteca_mixamo().with_suffix(".json")
     if cat_path.exists():
-        catalogo = {x["clave"]: x for x in json.loads(cat_path.read_text(encoding="utf-8"))["animaciones"]}
+        catalogo.update({x["clave"]: x for x in json.loads(cat_path.read_text(encoding="utf-8"))["animaciones"]})
     salida = []
     for item, tramo in zip(secuencia, tramos):
         pedido = item.get("objeto")
-        inter = (catalogo.get(item.get("anim"), {}) or {}).get("interaccion") or \
+        todas = (catalogo.get(item.get("anim"), {}) or {}).get("interaccion") or \
             INTERACCION_POR_CLAVE.get(item.get("anim", ""), "")
-        if pedido is False or (not pedido and not inter):
+        if pedido is False or (not pedido and not todas):
             continue
+        # varias interacciones en una animación («sentado,telefono:R»); un «objeto» pedido reemplaza la última
+        lista = [x for x in todas.split(",") if x] or [""]
+        for inter in lista[:-1]:
+            clave, _, mano = inter.partition(":")
+            t_int, obj = INTERACCIONES.get(clave, ("mano", None))
+            if obj:
+                d = resolver_objeto(obj) if t_int not in ("puerta", "tocar", "boton") else {"tipo": obj}
+                d.update({"interaccion": t_int, "mano": mano or "R", "desde": tramo["inicio"], "hasta": tramo["fin"]})
+                salida.append(d)
+        inter = lista[-1]
         partes = inter.split(":")  # «agarrar:R» o «agarrar:R:caja» (tipo:mano:objeto)
         clave, mano = partes[0], (partes[1] if len(partes) > 1 else "")
         tipo_int, obj_def = INTERACCIONES.get(clave, ("mano", None))
@@ -257,6 +314,8 @@ def cmd_toma(a) -> None:
                          f"({personaje}). Usa mixamo_importar o biblioteca_listar.")
     secuencia = json.loads(a.secuencia)
     bibliotecas = [str(biblioteca_mixamo())]
+    kim = catalogo_kimodo()  # acciones de la biblioteca Kimodo que pide esta toma
+    bibliotecas += sorted({kim[c["anim"]]["blend"] for c in secuencia if c.get("anim") in kim})
     pasos = {}
 
     # 1. Acciones generadas con Kimodo (o BVH dados) → adaptadas al personaje → acciones con nombre.
@@ -366,6 +425,10 @@ def main() -> None:
     pm = sub.add_parser("mixamo")
     pm.add_argument("--altura", type=float, default=1.75)
     pm.add_argument("--forzar", action="store_true")
+    pk = sub.add_parser("kimodo_biblioteca")
+    pk.add_argument("--nombre", default="", help="claves separadas por coma (vacío = todas las que falten)")
+    pk.add_argument("--esqueleto", default="remy")
+    pk.add_argument("--forzar", action="store_true")
     pt = sub.add_parser("toma")
     pt.add_argument("--proyecto", required=True)
     pt.add_argument("--nombre", default="toma")
@@ -392,7 +455,7 @@ def main() -> None:
     a = p.parse_args()
     if not config.drive_disponible():
         raise SystemExit(config.AVISO_DRIVE)
-    {"mixamo": cmd_mixamo, "toma": cmd_toma}[a.cmd](a)
+    {"mixamo": cmd_mixamo, "toma": cmd_toma, "kimodo_biblioteca": cmd_kimodo_biblioteca}[a.cmd](a)
 
 
 if __name__ == "__main__":

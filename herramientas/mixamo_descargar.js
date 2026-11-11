@@ -152,24 +152,10 @@
   // Las que no se encontraron en la segunda tanda, con varios nombres alternativos (se prueba cada uno
   // hasta que uno coincida bien). Con USAR_REINTENTOS = true solo se baja esta lista.
   const LISTA_REINTENTOS = [
-    [["whisper", "telling a secret", "secret"], false, "susurrar", "conversacion"],
-    [["explain", "having a meeting", "talking with hands", "conversation"], false, "explicar", "conversacion"],
-    [["vomit", "throwing up", "nauseous", "sick"], false, "enfermo", "dolor"],
-    [["head pain", "holding head", "migraine", "headache"], false, "dolor_cabeza", "dolor"],
-    [["stomach", "belly ache", "hurt stomach"], false, "dolor_estomago", "dolor"],
-    [["shiver", "freezing", "cold"], false, "temblar_frio", "dolor"],
-    [["faint", "passing out", "collapse", "fainting"], false, "desmayarse", "caidas"],
-    [["knee pain", "hurt knee", "holding knee", "injured knee"], false, "sujetar_rodilla", "dolor"],
-    [["sitting thinking", "thoughtful sitting", "sit thinking", "sitting pondering"], false, "sentado_pensar", "sentado", "sentado"],
-    [["reading book", "sitting reading", "book reading", "read book"], false, "leer", "objetos", "libro:R"],
-    [["sitting texting", "texting sitting", "sitting phone", "phone sitting"], false, "sentado_celular", "sentado", "telefono:R"],
-    [["lying down", "laying down", "lie down", "sitting to lying"], false, "acostarse", "acostado"],
-    [["get out of bed", "waking up", "wake up", "getting out of bed"], false, "levantarse_cama", "acostado"],
-    [["knocking", "knock", "knock door"], false, "tocar_puerta", "objetos", "tocar:R"],
-    [["lifting", "box lifting", "pick up box", "lift box"], false, "levantar_caja", "objetos", "agarrar:R:caja"],
-    [["check watch", "checking watch", "looking at watch", "watch"], false, "mirar_reloj", "objetos"],
-    [["selfie", "taking photo", "taking picture", "photo"], false, "tomar_foto", "objetos", "telefono:R"],
-    [["scared run", "run away", "fleeing", "running scared"], true, "huir", "accion"],
+    // Cuarta tanda: las dos que Mixamo ofreció en la tercera. Lo que no existe en Mixamo (temblar,
+    // desmayarse, leer, mirar el reloj, foto, huir…) lo genera Kimodo: herramienta kimodo_biblioteca.
+    [["agony"], false, "dolor_intenso", "dolor"],
+    [["waking"], false, "despertar", "acostado"],
   ];
   const USAR_REINTENTOS = true;
   // Lista principal: las 30 primeras (primera tanda) se saltan; pon 0 para bajarlas todas.
