@@ -137,11 +137,7 @@ def main():
         info.update(comun.configurar_gpu_cycles())
         esc.cycles.samples = a.muestras
         esc.cycles.use_adaptive_sampling = True
-        esc.cycles.use_denoising = True
-        try:
-            esc.cycles.denoiser = "OPTIX" if info["backend"] == "OPTIX" else "OPENIMAGEDENOISE"
-        except TypeError:
-            pass
+        info.update(comun.configurar_denoiser(esc, info["backend"]))
         info["muestras"] = a.muestras
     else:
         r.engine = comun.motor_eevee()

@@ -47,6 +47,33 @@ def configurar_gpu_cycles() -> dict:
     return {"backend": elegido or "CPU", "dispositivos": activos}
 
 
+RUTAS_NVOPTIX = ["/usr/share/nvidia/nvoptix.bin", "/usr/lib64-nvidia/nvoptix.bin",
+                 "/usr/lib/x86_64-linux-gnu/nvidia/nvoptix.bin"]
+
+
+def configurar_denoiser(escena, backend: str) -> dict:
+    """Elige el eliminador de ruido que realmente funciona en esta máquina.
+
+    El denoiser de OptiX necesita el archivo de pesos nvoptix.bin del driver; algunos contenedores
+    (como Colab) traen la librería de OptiX para el trazado de rayos pero no ese archivo. En ese caso se
+    usa OpenImageDenoise acelerado por la GPU (mismo resultado visual, probado en la RTX PRO 6000)."""
+    import os
+
+    escena.cycles.use_denoising = True
+    nvoptix = next((r for r in RUTAS_NVOPTIX if os.path.exists(r)), None)
+    if backend == "OPTIX" and nvoptix:
+        escena.cycles.denoiser = "OPTIX"
+    else:
+        escena.cycles.denoiser = "OPENIMAGEDENOISE"
+    if hasattr(escena.cycles, "denoising_use_gpu"):
+        escena.cycles.denoising_use_gpu = backend != "CPU"
+    return {
+        "denoiser": escena.cycles.denoiser,
+        "denoiser_en_gpu": getattr(escena.cycles, "denoising_use_gpu", None),
+        "nvoptix_bin": nvoptix,
+    }
+
+
 def motor_eevee() -> str:
     """El identificador de EEVEE cambió entre versiones (BLENDER_EEVEE_NEXT en 4.2–4.5)."""
     ids = {e.identifier for e in bpy.types.RenderSettings.bl_rna.properties["engine"].enum_items}

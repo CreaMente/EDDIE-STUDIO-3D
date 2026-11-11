@@ -33,18 +33,25 @@ El estudio se expone como servidor MCP `eddie-studio` por un túnel **temporal**
    - Disco rápido de la sesión: `/content/eddie/` (se borra al cerrar Colab)
    - Código del sistema: el repo clonado (rutas relativas de las herramientas parten de ahí)
    - Entregas finales: `/content/drive/MyDrive/EDDIE_STUDIO/entregas/`
-6. **Puedes editar el sistema.** Con `leer_archivo`, `editar_archivo` y `escribir_archivo` cambias el
+6. **Datos técnicos medidos en Colab:**
+   - Cycles usa `OPTIX` para el trazado de rayos.
+   - El denoiser de OptiX **no** está disponible: falta `nvoptix.bin` en el contenedor.
+     `comun.configurar_denoiser()` usa OpenImageDenoise en la GPU automáticamente. Úsala siempre.
+   - El primer render de EEVEE en cada sesión tarda unos 20 s más porque compila shaders.
+7. **Puedes editar el sistema.** Con `leer_archivo`, `editar_archivo` y `escribir_archivo` cambias el
    código del repo clonado. Después usa `reiniciar_servidor` si cambiaste `servidor/` o `estudio/`.
    - Los cambios en Colab **se pierden al cerrar la sesión** si no se suben a GitHub.
    - Avisa al propietario qué cambiaste.
-7. **Honestidad.**
+   - El token de GitHub del estudio es de **solo lectura**. No puedes subir cambios. Si algo debe quedar
+     permanente, descríbelo al propietario con el archivo y el cambio exacto.
+8. **Honestidad.**
    - Nunca digas que algo funcionó sin evidencia: registro del trabajo, `RESULTADO_JSON` o imagen revisada.
    - Si algo falta (una clave, un modelo, una fase sin construir), dilo y propón el siguiente paso.
 
 ## Estado actual del sistema (actualízalo cuando avance)
 | Fase | Estado |
 |---|---|
-| 0. Conexión y entorno (túnel, servidor, Blender 5.2, render de prueba) | **Funcionando en Colab** (RTX PRO 6000 Blackwell 96 GB, túnel Cloudflare verificado). Falta medir los tiempos con `render_prueba` |
+| 0. Conexión y entorno (túnel, servidor, Blender 5.2, render de prueba) | **Completa.** Medido en Colab (RTX PRO 6000 Blackwell 96 GB, driver 580): Cycles 1080x1920 a 128 muestras con OptiX = **2.18 s**; EEVEE = 20.8 s en frío (compilación de shaders) |
 | 1. Biblioteca base | Pendiente |
 | 2. Voz y tiempos (VoxCPM2, WhisperX) | Pendiente |
 | 3. Director de escena y animación (Kimodo, Audio2Face) | Pendiente |
