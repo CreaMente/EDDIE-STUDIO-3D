@@ -65,7 +65,6 @@
     return r.json();
   };
   const dormir = (ms) => new Promise((ok) => setTimeout(ok, ms));
-  const limpiar = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "");
 
   // Personaje seleccionado en la página.
   let personaje;
@@ -76,23 +75,13 @@
   if (!personaje.id) { console.error("❌ Selecciona primero un personaje en la pestaña Characters."); return; }
   console.log(`🎬 Personaje: ${personaje.nombre} (${personaje.id}). Descargando ${LISTA.length} animaciones…`);
 
-  async function bajarArchivo(url, nombre) {
-    try {
-      const r = await fetch(url);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const blob = await r.blob();
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = nombre;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
-    } catch (e) {
-      // Si el servidor no permite leerlo desde la página, se abre el enlace (el navegador lo descarga igual).
-      console.warn(`   (descarga directa de ${nombre}; el archivo puede quedar con el nombre de Mixamo)`);
-      const a = document.createElement("a");
-      a.href = url; a.download = nombre; a.target = "_blank";
-      document.body.appendChild(a); a.click(); a.remove();
-    }
+  // La página de Mixamo no permite leer el archivo desde el script (política de seguridad), así que se usa
+  // la descarga normal del navegador: el archivo conserva el nombre que le pone Mixamo (p. ej. "Walking.fbx").
+  // La relación nombre de Mixamo → nombre en español queda en el índice que se descarga al final.
+  function bajarArchivo(url) {
+    const a = document.createElement("a");
+    a.href = url; a.rel = "noopener";
+    document.body.appendChild(a); a.click(); a.remove();
   }
 
   const resumen = [];
@@ -128,10 +117,10 @@
       }
       if (!url) throw new Error("tiempo de espera agotado");
 
-      const archivo = `${num}_${corto}__${limpiar(elegido.name)}.fbx`;
-      await bajarArchivo(url, archivo);
-      console.log(`✅ ${num}/${LISTA.length} ${archivo}`);
-      resumen.push({ "#": num, busqueda, animacion: elegido.name, archivo, estado: "OK" });
+      const archivo = `${elegido.name}.fbx`;
+      bajarArchivo(url);
+      console.log(`✅ ${num}/${LISTA.length} ${archivo}  →  ${corto}`);
+      resumen.push({ "#": num, busqueda, animacion: elegido.name, archivo, nombre: corto, en_lugar: enLugar, estado: "OK" });
     } catch (e) {
       console.error(`❌ ${num}/${LISTA.length} "${busqueda}": ${e.message}`);
       resumen.push({ "#": num, busqueda, animacion: "-", archivo: "-", estado: "ERROR: " + e.message });
@@ -139,7 +128,12 @@
     await dormir(PAUSA_MS);
   }
   console.table(resumen);
+  // Índice para el estudio: qué archivo de Mixamo corresponde a cada acción (se sube junto con los .fbx).
+  const indice = new Blob([JSON.stringify({ personaje, animaciones: resumen }, null, 1)], { type: "application/json" });
+  const ai = document.createElement("a");
+  ai.href = URL.createObjectURL(indice); ai.download = "mixamo_indice.json";
+  document.body.appendChild(ai); ai.click(); ai.remove();
   const fallos = resumen.filter((r) => r.estado !== "OK").length;
   console.log(fallos ? `⚠️ Terminado con ${fallos} error(es). Copia la tabla y pásasela a Claude.`
-                     : "🎉 Terminado sin errores. Sube los .fbx a Diseños 3d/biblioteca/_entrada/mixamo/animaciones/");
+                     : "🎉 Terminado sin errores. Sube los .fbx y mixamo_indice.json a Diseños 3d/biblioteca/_entrada/mixamo/animaciones/");
 })();
