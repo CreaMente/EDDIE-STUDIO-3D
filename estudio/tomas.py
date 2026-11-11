@@ -13,8 +13,9 @@
 Elementos de la secuencia:
   {"anim": clave}            animación de la biblioteca Mixamo (ver biblioteca_listar)
   {"kimodo": "texto en inglés", "segundos": n}   acción generada con Kimodo (≤ 10 s)
+  {"kimodo": ["acción simple 1", "acción simple 2"], "segundos": [2, 3]}   varias acciones encadenadas
   {"bvh": ruta, "segundos": n}                    movimiento BVH ya existente (SOMA)
-  + opcionales: "segundos", "avance" (m/s o true), "giro" (grados)
+  + opcionales: "segundos", "avance" (m/s o true), "giro" (grados), "mezcla" (cuadros de fundido de entrada)
 
 Resultado en <DRIVE>/proyectos/<id>/tomas/<nombre>/: toma.mp4, animado.blend, reporte.json.
 Cada paso imprime su progreso; al final una línea RESULTADO_JSON.
@@ -101,6 +102,20 @@ def cmd_mixamo(a) -> None:
 
 # ───────────────────────── toma completa ─────────────────────────
 
+def acciones_kimodo(item: dict) -> tuple[list[str], list[float]]:
+    """{"kimodo": "texto" | ["acción 1", "acción 2", …], "segundos": n | [n1, n2, …]} → textos y duraciones.
+
+    Kimodo sigue mucho mejor varias acciones simples encadenadas (multi-prompt) que una frase con «then…»."""
+    textos = item["kimodo"] if isinstance(item["kimodo"], list) else [item["kimodo"]]
+    seg = item.get("segundos", 3.0 * len(textos))
+    duraciones = [float(x) for x in seg] if isinstance(seg, list) else [float(seg) / len(textos)] * len(textos)
+    if len(duraciones) != len(textos):
+        raise SystemExit(f"Kimodo: {len(textos)} acciones pero {len(duraciones)} duraciones en «segundos».")
+    if any(d > 10.0 or d < 0.5 for d in duraciones):
+        raise SystemExit("Kimodo: cada acción debe durar entre 0.5 y 10 s; divide las largas en acciones más simples.")
+    return [str(t) for t in textos], duraciones
+
+
 def cmd_toma(a) -> None:
     t0 = time.time()
     proyecto = Path(a.proyecto) if os.path.isabs(a.proyecto) else config.ruta_drive("proyectos", a.proyecto)
@@ -121,13 +136,13 @@ def cmd_toma(a) -> None:
             bvh = item.get("bvh")
             if "kimodo" in item:
                 entornos.asegurar("movimiento", log)
-                seg = float(item.get("segundos", 5))
+                textos, duraciones = acciones_kimodo(item)
                 r = correr(entornos.comando("movimiento", "ia.movimiento", "generar",
-                                            "--textos", json.dumps([item["kimodo"]]),
-                                            "--duraciones", json.dumps([min(seg, 10.0)]),
+                                            "--textos", json.dumps(textos),
+                                            "--duraciones", json.dumps(duraciones),
                                             "--salida", str(carpeta / "kimodo"), "--nombre", nombre_acc,
                                             "--semilla", str(item.get("semilla", 42))),
-                           f"Kimodo: «{item['kimodo'][:60]}»")
+                           f"Kimodo: «{' → '.join(textos)[:80]}»")
                 bvh = r["bvh"]
                 pasos[nombre_acc] = r
             blend_acc = carpeta / "kimodo" / f"{nombre_acc}.blend"
@@ -136,8 +151,8 @@ def cmd_toma(a) -> None:
                                     "--accion", nombre_acc]),
                    f"adaptar movimiento {nombre_acc} al personaje")
             bibliotecas.append(str(blend_acc))
-            item = {k: v for k, v in item.items() if k not in ("kimodo", "bvh", "semilla")}
-            item["anim"] = nombre_acc
+            item = {k: v for k, v in item.items() if k not in ("kimodo", "bvh", "semilla", "segundos")}
+            item["anim"] = nombre_acc  # se usa completa: su duración ya es la pedida
             secuencia[i] = item
 
     # 2. Encadenar animaciones.
@@ -192,7 +207,7 @@ def main() -> None:
     pt.add_argument("--nombre", default="toma")
     pt.add_argument("--personaje", required=True)
     pt.add_argument("--secuencia", required=True)
-    pt.add_argument("--motor", default="EEVEE", choices=["EEVEE", "CYCLES"])
+    pt.add_argument("--motor", default="CYCLES", choices=["EEVEE", "CYCLES"])
     pt.add_argument("--muestras", type=int, default=64)
     pt.add_argument("--escala", type=int, default=100)
     pt.add_argument("--hdri", default="brown_photostudio_02")

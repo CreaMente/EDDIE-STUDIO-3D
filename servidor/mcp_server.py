@@ -575,14 +575,19 @@ def movimiento_preparar() -> dict:
 
 @mcp.tool
 def toma_crear(proyecto: str, personaje: str, secuencia: list[dict], nombre: str = "toma",
-               motor: str = "EEVEE", calidad: str = "final", hdri: str = "brown_photostudio_02",
+               motor: str = "CYCLES", calidad: str = "final", hdri: str = "brown_photostudio_02",
                piso: str = "laminate_floor_02", con_voz: bool = False, camara: dict | None = None) -> dict:
     """Arma y renderiza una toma 3D a MP4 vertical 1080x1920.
 
     secuencia: lista de tramos, en orden. Cada tramo es uno de:
       {"anim": "caminar_herido", "segundos": 4, "avance": true}   ← animación de la biblioteca Mixamo
       {"kimodo": "A person holds their knee in pain.", "segundos": 5}  ← acción nueva con IA (texto EN INGLÉS)
-    opcionales por tramo: "segundos", "avance" (m/s o true), "giro" (grados).
+      {"kimodo": ["A person stops walking.", "A person kneels on their left knee.",
+                  "A person stands up slowly."], "segundos": [1.5, 3, 2.5]}  ← varias acciones simples
+        encadenadas (mucho mejor que una frase con «then…»; ≤ 10 s cada una)
+    opcionales por tramo: "segundos", "avance" (m/s o true), "giro" (grados), "mezcla" (cuadros de
+    fundido con el tramo anterior; usa 15–20 si las poses de unión son muy distintas).
+    motor: "CYCLES" (recomendado: usa la GPU con OptiX). "EEVEE" en Colab cae a CPU (sin EGL de NVIDIA).
     calidad: "borrador" (25 %, 16 muestras), "previa" (50 %, 32) o "final" (100 %, 64; Cycles: 128).
     camara: {"angulo": 25, "distancia": 4.2, "altura": 1.45, "lente": 35, "acercamiento": 0.25}.
     con_voz: añade proyectos/<id>/voz/voz.wav como audio.

@@ -40,7 +40,9 @@ El estudio se expone como servidor MCP `eddie-studio` por un túnel **temporal**
    - Cycles usa `OPTIX` para el trazado de rayos.
    - El denoiser de OptiX **no** está disponible: falta `nvoptix.bin` en el contenedor.
      `comun.configurar_denoiser()` usa OpenImageDenoise en la GPU automáticamente. Úsala siempre.
-   - El primer render de EEVEE en cada sesión tarda unos 20 s más porque compila shaders.
+   - **Usa siempre `motor="CYCLES"`**, también en borradores: en Colab EEVEE no encuentra el EGL de NVIDIA
+     y renderiza en CPU (`EGL_BAD_MATCH`, 1.9 s/cuadro a 270×480). Cycles con OptiX: ~0.15 s/cuadro en
+     borrador y ~1.6 s/cuadro a 1080×1920 con 128 muestras.
 7. **Puedes editar el sistema.** Con `leer_archivo`, `editar_archivo` y `escribir_archivo` cambias el
    código del repo clonado. Después usa `reiniciar_servidor` si cambiaste `servidor/` o `estudio/`.
    - Los cambios en Colab **se pierden al cerrar la sesión** si no se suben a GitHub.
@@ -57,7 +59,7 @@ El estudio se expone como servidor MCP `eddie-studio` por un túnel **temporal**
 | 0. Conexión y entorno (túnel, servidor, Blender 5.2, render de prueba) | **Completa.** Medido en Colab (RTX PRO 6000 Blackwell 96 GB, driver 580): Cycles 1080x1920 a 128 muestras con OptiX = **2.18 s**; EEVEE = 20.8 s en frío (compilación de shaders) |
 | 1. Biblioteca base | **En marcha.** Personaje Mixamo «remy» + 30 animaciones Mixamo importadas (`mixamo_importar`). HDRI y texturas de Poly Haven automáticos |
 | 2. Voz y tiempos (VoxCPM2 + Whisper) | **Completa en GPU.** Narrador fijo `narrador` (candidata 2). Prueba: guion de 61 palabras → 18.98 s de voz en 31.5 s, 0 % de error, 61/61 palabras alineadas, 3.21 pal/s |
-| 3. Director de escena y animación | **Construida (probada en CPU):** `toma_crear` encadena animaciones Mixamo con fundidos y acciones nuevas con Kimodo, escenario y render a MP4. Pendiente: Audio2Face (cara) y prueba en GPU |
+| 3. Director de escena y animación | **Funciona en GPU.** `toma_crear` encadena Mixamo + Kimodo (texto → movimiento en ~23 s, retargeting a Mixamo con anclaje al piso) y renderiza a MP4. Pendiente: Audio2Face (cara) |
 | 4. Render por bloques y montaje | Pendiente |
 | 5. Recursos automáticos (APIs + IA 3D) | Pendiente |
 | 6. Look y estilo | Pendiente |
@@ -118,10 +120,16 @@ No finjas un video terminado.
     - `avance: true` hace avanzar a velocidad realista los ciclos grabados en el lugar (caminar, correr).
   - `{"kimodo": "A person sits on the floor holding their knee in pain.", "segundos": 5}`: acción nueva generada con IA.
     - El texto va **en inglés**, describiendo el movimiento del cuerpo.
-    - Máximo 10 s por tramo.
+    - **Varias acciones en un tramo: usa una lista de acciones simples**, no una frase con «then…»
+      (medido en GPU: con «then» Kimodo hizo solo la primera parte y se quedó congelado 4 s):
+      `{"kimodo": ["A person stops walking.", "A person kneels down on their left knee.",
+      "A person holds their left knee with both hands in pain.", "A person slowly stands up."],
+      "segundos": [1.5, 2, 3, 2.5]}`.
+    - Una acción por frase, de 1.5 a 4 s cada una (máximo 10). Termina el tramo en una pose parecida a la
+      del tramo siguiente (por ejemplo, de pie si después viene una animación de pie).
     - Requiere `movimiento_preparar()` una vez y que el propietario haya aceptado la licencia de Meta Llama 3 en Hugging Face.
-  - Opcionales por tramo: `"giro"` en grados (+ = izquierda).
-  - Entre tramos hay un fundido de 10 cuadros.
+  - Opcionales por tramo: `"giro"` en grados (+ = izquierda) y `"mezcla"` (cuadros de fundido con el
+    tramo anterior; por defecto 10, usa 15–20 si las poses de unión son distintas).
 - **Prioridad:** usa primero las animaciones de Mixamo, que tienen más calidad. Kimodo solo para lo que no exista.
 - **Cámara:** sigue a la cadera con acercamiento lento. Ajusta con `camara={"angulo", "distancia", "altura", "lente", "acercamiento"}`.
 - **Escenario:** `hdri` y `piso` son ids de Poly Haven. Se descargan solos y quedan en Drive.

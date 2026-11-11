@@ -11,6 +11,7 @@ Cada elemento de la secuencia:
   segundos   duración deseada (se repite el ciclo si hace falta). Sin esto: una vez completa.
   avance     metros por segundo hacia adelante (para caminar/correr grabados «en el lugar»)
   giro       grados a girar el personaje al empezar este tramo (+ = izquierda)
+  mezcla     cuadros de fundido con el tramo anterior (por defecto --mezcla)
 
 Personaje y animaciones comparten el esqueleto de Mixamo: se aplican directo, sin adaptación.
 Las transiciones se hacen con pistas NLA superpuestas (fundido de `mezcla` cuadros).
@@ -81,7 +82,9 @@ def main() -> None:
         largo_ciclo = max(1.0, f1 - f0)
         objetivo = int(round(clip["segundos"] * 30)) if clip.get("segundos") else int(largo_ciclo)
         repeticiones = max(1.0, objetivo / largo_ciclo)
-        inicio = cuadro if i == 0 else cuadro - a.mezcla
+        mezcla = int(clip.get("mezcla", a.mezcla))  # fundido de entrada de este tramo
+        sig_mezcla = int(secuencia[i + 1].get("mezcla", a.mezcla)) if i < len(secuencia) - 1 else 0
+        inicio = cuadro if i == 0 else cuadro - mezcla
         tira = pistas[i % 2].strips.new(f"{i:02d}_{clip['anim']}", int(inicio), accion)
         if objetivo < largo_ciclo:
             # Más corta que la animación: se usa solo el principio (sin repetir).
@@ -93,16 +96,16 @@ def main() -> None:
         tira.blend_type = "REPLACE"
         tira.extrapolation = "NOTHING"
         if i > 0:
-            tira.blend_in = a.mezcla
+            tira.blend_in = mezcla
         if i < len(secuencia) - 1:
-            tira.blend_out = a.mezcla
+            tira.blend_out = sig_mezcla
         fin = int(tira.frame_end)
 
         if clip.get("giro"):
             rig.keyframe_insert("rotation_euler", frame=inicio)
             rumbo += math.radians(clip["giro"])
             rig.rotation_euler.z = rumbo
-            rig.keyframe_insert("rotation_euler", frame=inicio + a.mezcla)
+            rig.keyframe_insert("rotation_euler", frame=inicio + max(1, mezcla))
 
         velocidad = clip.get("avance")
         if velocidad is True:

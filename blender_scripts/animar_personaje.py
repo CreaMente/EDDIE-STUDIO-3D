@@ -4,9 +4,10 @@ Uso:
   blender -b --factory-startup -P animar_personaje.py -- --personaje personaje.blend --bvh mov.bvh \
       --salida animado.blend [--hoja hoja.png --cuadros 8]
 
-Método (retargeting por dirección de huesos, independiente de la pose de reposo):
-  1. El personaje MPFB está en A-pose y el BVH en T-pose. Para cada hueso se calcula su «reposo en T»:
-     la rotación mínima que lleva su dirección de reposo a la dirección del hueso equivalente de SOMA.
+Método (retargeting por rotaciones en el mundo, independiente de la pose de reposo):
+  1. El BVH está en T-pose; el personaje puede estar en T o en A. Para brazos y piernas se calcula su
+     «reposo en T»: la rotación mínima que lleva su dirección de reposo a la del hueso de SOMA. Cadera,
+     columna, cabeza, manos y pies heredan la alineación de su padre (no se alinean por dirección).
   2. En cada cuadro: rotación_mundo_destino = (pose_SOMA · reposo_SOMA⁻¹) · reposo_en_T_destino.
   3. Se convierten a rotaciones locales (de padre a hijo) y se hornean como claves.
   4. La cadera se desplaza como en el BVH, escalada por la diferencia de estatura.
@@ -43,6 +44,13 @@ for lado in ("Left", "Right"):
     for dedo in ("Index", "Middle", "Ring", "Pinky"):
         for i in (1, 2, 3):
             MAPA[f"{lado}Hand{dedo}{i + 1}"] = f"{lado}Hand{dedo}{i}"
+
+# Huesos (nombres Mixamo sin lado) cuya dirección de reposo depende de la pose (T o A).
+ALINEAR_DIRECCION = {"Arm", "ForeArm", "UpLeg", "Leg"}
+
+# Articulaciones (nombres SOMA) que pueden apoyarse en el piso.
+CONTACTO = {"Hips", "LeftShin", "RightShin", "LeftFoot", "RightFoot", "LeftToeBase", "RightToeBase",
+            "LeftHand", "RightHand"}
 
 
 def buscar_hueso(arm, nombre: str):
@@ -105,14 +113,22 @@ def main() -> None:
         giro = True
 
     # Reposo en mundo y «reposo en T» del destino.
+    # Solo los huesos largos de brazos y piernas se alinean por dirección (es lo que cambia entre una pose
+    # en T y una en A). El resto hereda la alineación de su padre: la dirección de huesos como la cadera,
+    # los pies o las manos depende de cómo se armó cada esqueleto, no de la pose (la cadera de SOMA apunta
+    # hacia abajo y la de Mixamo hacia arriba: alinearla volteaba la pelvis 156°).
     s_rest = {s: rot(Ws @ fuente.data.bones[s].matrix_local) for s, _ in pares}
-    t_rest_T = {}
-    for s, t in pares:
-        tb = destino.data.bones[t]
-        sb = fuente.data.bones[s]
-        alinear = dir_mundo(Wt, tb).rotation_difference(dir_mundo(Ws, sb))
-        t_rest_T[t] = (alinear @ rot(Wt @ tb.matrix_local)).normalized()
     mapa_t = {t: s for s, t in pares}
+    alineacion = {}
+    for tb in destino.data.bones:  # en orden padre → hijo
+        s = mapa_t.get(tb.name)
+        if s and tb.name.split(":")[-1].replace("Left", "").replace("Right", "") in ALINEAR_DIRECCION:
+            alineacion[tb.name] = dir_mundo(Wt, tb).rotation_difference(dir_mundo(Ws, fuente.data.bones[s]))
+        elif tb.parent and tb.parent.name in alineacion:
+            alineacion[tb.name] = alineacion[tb.parent.name]
+        else:
+            alineacion[tb.name] = Quaternion()
+    t_rest_T = {t: (alineacion[t] @ rot(Wt @ destino.data.bones[t].matrix_local)).normalized() for _, t in pares}
 
     # Escala de la traslación de la cadera según la estatura de cada esqueleto.
     s_cad, t_cad = fuente.data.bones[mapa_t[next(t for t in mapa_t if t.endswith("Hips"))]], None
@@ -131,6 +147,9 @@ def main() -> None:
     Wt_rot_inv = rot(Wt).inverted()
     for pb in destino.pose.bones:
         pb.rotation_mode = "QUATERNION"
+    # Acción nueva y propia (la del BVH se llama igual que la que queremos dejar al final).
+    destino.animation_data_create()
+    destino.animation_data.action = bpy.data.actions.new("_retarget_tmp")
 
     for f in range(f_ini, f_fin + 1):
         esc.frame_set(f)
@@ -163,25 +182,36 @@ def main() -> None:
         pb.location = rot(t_cad.matrix_local).inverted() @ (deseada_arm - t_cad.head_local)
         pb.keyframe_insert("location", frame=f)
 
+    # Anclaje al piso cuadro a cuadro: la articulación de contacto más baja del personaje (dedos, tobillos,
+    # rodillas, manos o cadera) queda a la misma altura que en el movimiento original. Así, al arrodillarse
+    # o sentarse, las rodillas y la cadera tocan el piso aunque las proporciones de las piernas sean otras.
+    contactos = [(s, t) for s, t in pares if s.split(":")[-1] in CONTACTO]
+    pb_cad = destino.pose.bones[t_cad.name]
+    a_hueso = rot(t_cad.matrix_local).inverted()
+    a_arm = Wt.inverted().to_3x3()
+    ajustes = []
+    for f in range(f_ini, f_fin + 1):
+        esc.frame_set(f)
+        alto_s = min((Ws @ fuente.pose.bones[s].head).z for s, _ in contactos)
+        alto_t = min((Wt @ destino.pose.bones[t].head).z for _, t in contactos)
+        dz = alto_s - alto_t
+        ajustes.append(dz)
+        pb_cad.location = pb_cad.location + a_hueso @ (a_arm @ Vector((0.0, 0.0, dz)))
+        pb_cad.keyframe_insert("location", frame=f)
+
     bpy.data.objects.remove(fuente, do_unlink=True)
+    if accion and accion.name in bpy.data.actions:
+        bpy.data.actions.remove(accion)  # la acción del BVH ya no hace falta
     if a.accion and destino.animation_data and destino.animation_data.action:
+        previa = bpy.data.actions.get(a.accion)
+        if previa and previa != destino.animation_data.action:
+            bpy.data.actions.remove(previa)
         destino.animation_data.action.name = a.accion
         destino.animation_data.action.use_fake_user = True
 
-    # Pies al piso: el punto más bajo de los dedos en todo el clip debe quedar a ras del suelo.
-    dedos = [destino.pose.bones[t] for t in mapa_t if t.endswith("ToeBase") or t.endswith("Foot")]
-    piso_rest = min((Wt @ destino.data.bones[pb.name].head_local).z for pb in dedos)
-    minimo = float("inf")
-    for f in range(f_ini, f_fin + 1, 2):
-        esc.frame_set(f)
-        minimo = min(minimo, min((Wt @ pb.head).z for pb in dedos))
-    # Solo se sube si algún pie atraviesa el piso (bajar podría dejar los pies flotando en saltos).
-    correccion = piso_rest - minimo if minimo < piso_rest - 0.005 else 0.0
-    if correccion:
-        destino.location.z += correccion
-
     info = {"huesos_emparejados": len(pares), "cuadros": f_fin - f_ini + 1, "fps": esc.render.fps,
-            "escala_traslacion": round(escala, 4), "giro_180": giro, "correccion_piso_m": round(correccion, 4)}
+            "escala_traslacion": round(escala, 4), "giro_180": giro,
+            "anclaje_piso_m": {"min": round(min(ajustes), 4), "max": round(max(ajustes), 4)}}
 
     if a.hoja:
         info["hoja"] = hoja_de_contacto(destino, a.hoja, f_ini, f_fin, a.cuadros)

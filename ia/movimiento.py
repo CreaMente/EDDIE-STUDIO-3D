@@ -75,9 +75,12 @@ def guardar_bvh(ruta: Path, global_rot_mats, posed_joints, skeleton, fps: float)
     from kimodo.skeleton import SOMASkeleton30, global_rots_to_local_rots
 
     dev = "cpu"
-    skeleton = skeleton.to(dev)
     joints_pos = torch.as_tensor(posed_joints, dtype=torch.float32, device=dev)
     joints_rot = torch.as_tensor(global_rot_mats, dtype=torch.float32, device=dev)
+    # Kimodo.__call__ ya devuelve 77 articulaciones aunque modelo.skeleton sea el de 30.
+    if isinstance(skeleton, SOMASkeleton30) and joints_rot.shape[-3] == 77:
+        skeleton = skeleton.somaskel77
+    skeleton = skeleton.to(dev)
     local = global_rots_to_local_rots(joints_rot, skeleton)
     raiz = joints_pos[:, skeleton.root_idx, :]
     if isinstance(skeleton, SOMASkeleton30):
