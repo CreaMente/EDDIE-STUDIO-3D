@@ -59,6 +59,25 @@ def cargar_voxcpm():
     return VoxCPM.from_pretrained(str(ruta), load_denoiser=False, optimize=False, device=dev)
 
 
+def generar(modelo, semilla: int, **kwargs):
+    """Genera audio con una semilla fija (reproducible). La versión publicada de voxcpm no acepta `seed`,
+    así que se fijan las semillas de torch, numpy y random antes de llamar."""
+    import inspect
+    import random
+
+    import numpy as np
+    import torch
+
+    random.seed(semilla)
+    np.random.seed(semilla % (2**32))
+    torch.manual_seed(semilla)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(semilla)
+    if "seed" in inspect.signature(modelo._generate).parameters:
+        kwargs["seed"] = semilla
+    return modelo.generate(**kwargs)
+
+
 def cargar_whisper(nombre: str):
     import stable_whisper
 
@@ -112,8 +131,8 @@ def cmd_narrador(a) -> None:
     salidas = []
     for i in range(1, a.candidatos + 1):
         log(f"Candidata {i}/{a.candidatos}…")
-        wav = modelo.generate(text=f"({a.descripcion}){texto}", cfg_value=a.cfg, inference_timesteps=a.pasos,
-                              seed=1000 + i)
+        wav = generar(modelo, 1000 + i, text=f"({a.descripcion}){texto}", cfg_value=a.cfg,
+                      inference_timesteps=a.pasos)
         wav = a_48k(recortar(wav, sr), sr)
         ruta = cand / f"candidata_{i}.wav"
         sf.write(ruta, wav, SR_SALIDA, subtype="PCM_24")
@@ -157,9 +176,8 @@ def cmd_generar(a) -> None:
         while intentos < a.max_tomas:
             intentos += 1
             semilla = a.semilla + n * 100 + intentos
-            wav = modelo.generate(text=frase, prompt_wav_path=str(ref_wav), prompt_text=prompt_text,
-                                  reference_wav_path=str(ref_wav), cfg_value=a.cfg,
-                                  inference_timesteps=a.pasos, seed=semilla)
+            wav = generar(modelo, semilla, text=frase, prompt_wav_path=str(ref_wav), prompt_text=prompt_text,
+                          reference_wav_path=str(ref_wav), cfg_value=a.cfg, inference_timesteps=a.pasos)
             wav = a_48k(recortar(wav, sr), sr)
             ruta = salida / "tomas" / f"f{n:03d}_t{intentos}.wav"
             sf.write(ruta, wav, SR_SALIDA, subtype="PCM_24")
