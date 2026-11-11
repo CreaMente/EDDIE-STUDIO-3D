@@ -44,7 +44,7 @@ El estudio se expone como servidor MCP `eddie-studio` por un túnel **temporal**
 ## Estado actual del sistema (actualízalo cuando avance)
 | Fase | Estado |
 |---|---|
-| 0. Conexión y entorno (túnel, servidor, Blender 5.2, render de prueba) | **Construida.** Falta medir la GPU real en Colab con `render_prueba` |
+| 0. Conexión y entorno (túnel, servidor, Blender 5.2, render de prueba) | **Funcionando en Colab** (RTX PRO 6000 Blackwell 96 GB, túnel Cloudflare verificado). Falta medir los tiempos con `render_prueba` |
 | 1. Biblioteca base | Pendiente |
 | 2. Voz y tiempos (VoxCPM2, WhisperX) | Pendiente |
 | 3. Director de escena y animación (Kimodo, Audio2Face) | Pendiente |
@@ -79,3 +79,10 @@ No finjas un video terminado.
   4. explicación del mecanismo real con una comparación cotidiana;
   5. consecuencia final con giro.
 - **Datos:** reales y con fuente. Nada inventado.
+
+## Licencias de las APIs (no solo de los recursos)
+- **Freesound:** su API es gratuita **solo para uso no comercial**. Un canal monetizado necesita licencia
+  de sus responsables (mtg@upf.edu). **No uses la API de Freesound** salvo que el propietario confirme que
+  tiene esa licencia.
+  - Los sonidos sueltos CC0/CC-BY descargados a mano desde la web sí se pueden usar.
+- Efectos de sonido por defecto: biblioteca Sonniss (libre de regalías, uso comercial).

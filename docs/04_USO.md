@@ -51,8 +51,9 @@ Si la sesión se cae, vuelve a ejecutar la celda y pega la nueva configuración:
 
 ## Seguridad
 - **La clave del estudio protege el túnel.** Sin ella nadie puede usar el servidor.
-  - Se guarda en `Mi unidad/EDDIE_PRIVADO/clave_estudio.txt`.
-  - Si crees que se filtró, borra ese archivo y reinicia: se genera otra.
+  - **Cambia en cada inicio**, igual que la dirección del túnel. Una clave compartida por error deja de
+    servir al volver a ejecutar la celda.
+  - Durante la sesión se guarda en `Mi unidad/EDDIE_PRIVADO/clave_estudio.txt`.
 - **Tu carpeta de Drive compartida como "Editor público" sigue siendo un riesgo.** Cámbiala a "Restringido".
 - El túnel es tu agente controlando tu propio cómputo. Las reglas de Colab prohíben "servicios web" no
   relacionados con el cómputo interactivo. Es un riesgo que decidiste aceptar (ver Arquitectura §2).

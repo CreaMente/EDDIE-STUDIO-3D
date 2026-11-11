@@ -101,8 +101,8 @@ def iniciar(instalar_blender: bool = True, preferir_ngrok: bool = False, panel: 
         exe = blender.instalar(_log)
         _log(f"Blender listo: {exe}")
 
-    clave = claves.clave_estudio()
-    _log("Iniciando servidor del estudio…")
+    clave = claves.clave_estudio(renovar=True)
+    _log("Iniciando servidor del estudio (clave nueva para esta sesión)…")
     iniciar_servidor(clave)
     local = f"http://127.0.0.1:{config.PUERTO_SERVIDOR}"
     for _ in range(60):

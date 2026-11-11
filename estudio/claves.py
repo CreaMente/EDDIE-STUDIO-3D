@@ -125,10 +125,14 @@ def resumen(claves: dict[str, str]) -> list[dict]:
     return filas
 
 
-def clave_estudio() -> str:
-    """Clave que protege el servidor MCP. Se genera una vez y se guarda en Drive privado."""
+def clave_estudio(renovar: bool = False) -> str:
+    """Clave que protege el servidor MCP.
+
+    Con renovar=True (cada inicio del estudio) se genera una nueva: igual que la dirección del túnel,
+    cambia en cada sesión, así una clave compartida por error deja de servir al reiniciar.
+    Se guarda en Drive privado para que la sesión actual la reutilice (p. ej., si se reabre el túnel)."""
     p = config.ruta_privada("clave_estudio.txt")
-    if p.exists():
+    if p.exists() and not renovar:
         v = p.read_text(encoding="utf-8").strip()
         if len(v) >= 32:
             return v

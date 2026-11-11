@@ -21,7 +21,7 @@ Las claves **nunca** se guardan en GitHub ni en los reportes, y nunca se imprime
 | 3 | GitHub | Que Colab descargue el código de este repo (si es privado) | Gratis | `GITHUB_TOKEN` | Sí, si el repo es privado |
 | 4 | Sketchfab | Buscar y descargar modelos 3D CC0/CC-BY | Gratis | `SKETCHFAB_API_TOKEN` | Sí |
 | 5 | api.data.gov (Smithsonian) | Objetos históricos y científicos CC0 | Gratis | `SI_API_KEY` | Recomendado |
-| 6 | Freesound | Efectos de sonido CC0/CC-BY | Gratis | `FREESOUND_API_KEY`, `FREESOUND_CLIENT_ID`, `FREESOUND_CLIENT_SECRET` (+ `FREESOUND_REFRESH_TOKEN`, lo genera el sistema) | Recomendado |
+| 6 | Freesound | Efectos de sonido CC0/CC-BY | **Gratis solo para uso no comercial**; un canal monetizado necesita licencia (mtg@upf.edu) | `FREESOUND_API_KEY`, `FREESOUND_CLIENT_ID`, `FREESOUND_CLIENT_SECRET` | **No** (desactivada sin licencia comercial) |
 | 7 | BlenderKit | Muebles e interiores gratuitos | Gratis | `BLENDERKIT_API_KEY` | Opcional |
 | — | Poly Haven, ambientCG, CMU, 100STYLE, Z-Anatomy, Blender Studio, Objaverse | Recursos 3D y animaciones | Gratis | *No necesitan clave* | — |
 
@@ -63,7 +63,7 @@ CC-BY se generan solos en `CREDITOS.txt` de cada video, para pegarlos en la desc
 ### Smithsonian (api.data.gov) — `SI_API_KEY`
 1. Entra a **api.data.gov/signup**, llena nombre y correo, y te llega la clave al correo.
 
-### Freesound — `FREESOUND_API_KEY`, `FREESOUND_CLIENT_ID`, `FREESOUND_CLIENT_SECRET`
+### Freesound (solo con licencia comercial) — `FREESOUND_API_KEY`, `FREESOUND_CLIENT_ID`, `FREESOUND_CLIENT_SECRET`
 1. Crea una cuenta en freesound.org → **freesound.org/apiv2/apply** → crea una credencial.
 2. Copia **Client id** y **Client secret / API key**.
 3. Para descargar el archivo **original** (no la vista previa comprimida), Freesound exige OAuth2.

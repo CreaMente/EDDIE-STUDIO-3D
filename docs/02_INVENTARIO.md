@@ -124,7 +124,7 @@ Licencias verificadas hoy en las fichas oficiales de Hugging Face. Todas permite
 | Modelo | Para qué | Licencia |
 |---|---|---|
 | **ACE-Step 1.5 XL** | Música original de fondo | MIT |
-| Sonniss + Freesound (bibliotecas) | Efectos de sonido reales | Libre de regalías / CC0 / CC-BY |
+| Sonniss (biblioteca principal) + Freesound (manual) | Efectos de sonido reales | Libre de regalías / CC0 / CC-BY |
 
 ### 6.6 Render
 | Componente | Para qué | Licencia |
@@ -149,7 +149,7 @@ Son bibliotecas en internet; su contenido no se puede "generar localmente", se d
 | Fuente | Qué trae | Licencia | Obtención | Tamaño |
 |---|---|---|---|---|
 | **Sonniss GDC Game Audio Bundles** (varios años) | Decenas de miles de efectos profesionales | Libre de regalías, uso comercial, sin atribución. Prohíbe entrenar IA (no lo hacemos) | manual (descarga gratis anual) | ~30 GB por paquete. Recomiendo 3 → ~90 GB |
-| **Freesound** (API) | Efectos específicos que falten | Solo CC0 / CC-BY (filtro) | clave | Bajo demanda |
+| Freesound | Efectos específicos que falten (solo CC0 / CC-BY) | **La API es gratuita solo para uso no comercial**: un canal monetizado necesita licencia de MTG-UPF. Sin licencia, se descargan a mano desde la web | manual (o clave + licencia) | Bajo demanda |
 | Pixabay Music / YouTube Audio Library | Música de fondo | Licencias libres para videos (se registra cada pista) | manual | ~5–10 GB curados |
 | ACE-Step 1.5 XL (local, ver §6) | Música original generada en tu GPU | MIT | auto | ~10 GB de pesos |
 

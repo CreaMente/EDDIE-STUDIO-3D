@@ -11,6 +11,7 @@ otra cuenta:
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import time
@@ -48,6 +49,8 @@ def servicio():
     from googleapiclient.discovery import build  # type: ignore
 
     auth.authenticate_user()
+    # Aviso inofensivo de la librería en cada llamada; se silencia para no ensuciar la salida.
+    logging.getLogger("google_auth_httplib2").setLevel(logging.ERROR)
     return build("drive", "v3", cache_discovery=False)
 
 
