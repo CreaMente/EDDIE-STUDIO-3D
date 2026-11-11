@@ -90,3 +90,51 @@ def guardar_whisper(nombre: str, registro=print) -> None:
             registro(f"Whisper {nombre}: copia guardada en Drive.")
         except OSError as e:
             registro(f"⚠️  No se pudo guardar Whisper en Drive ({e}).")
+
+
+# ───────────── caché de Hugging Face (para librerías que descargan por su cuenta) ─────────────
+# Algunas librerías (Kimodo, transformers) descargan con su propia lógica a la caché de Hugging Face.
+# Para no repetir descargas grandes en cada sesión, cada repo de la caché se guarda en Drive como un
+# .tar (conserva los enlaces simbólicos de la caché, que Drive no admite sueltos).
+
+def cache_hf() -> Path:
+    return Path(os.environ.get("HF_HUB_CACHE") or config.ruta_local("cache", "hf"))
+
+
+def _carpeta_cache(repo_id: str) -> Path:
+    return cache_hf() / ("models--" + repo_id.replace("/", "--"))
+
+
+def asegurar_cache_hf(repo_id: str, registro=print, permitir: list[str] | None = None) -> None:
+    import tarfile
+
+    destino = _carpeta_cache(repo_id)
+    if (destino / ".completo").exists():
+        return
+    tar_drive = config.ruta_drive("modelos_ia", "hf_cache", destino.name + ".tar")
+    cache_hf().mkdir(parents=True, exist_ok=True)
+    if tar_drive.exists() and tar_drive.stat().st_size > 1000:
+        registro(f"Modelo {repo_id}: restaurando desde Drive…")
+        with tarfile.open(tar_drive) as t:
+            try:
+                t.extractall(cache_hf(), filter="tar")
+            except TypeError:
+                t.extractall(cache_hf())
+        (destino / ".completo").touch()
+        return
+    from huggingface_hub import snapshot_download
+
+    registro(f"Modelo {repo_id}: descargando de Hugging Face…")
+    snapshot_download(repo_id, cache_dir=str(cache_hf()), token=os.environ.get("HF_TOKEN") or None,
+                      allow_patterns=permitir)
+    (destino / ".completo").touch()
+    if config.DRIVE.exists():
+        try:
+            registro(f"Modelo {repo_id}: guardando copia en Drive…")
+            tar_drive.parent.mkdir(parents=True, exist_ok=True)
+            tmp = tar_drive.with_suffix(".parcial")
+            with tarfile.open(tmp, "w") as t:
+                t.add(destino, arcname=destino.name)
+            tmp.replace(tar_drive)
+        except OSError as e:
+            registro(f"⚠️  No se pudo guardar la copia en Drive ({e}).")

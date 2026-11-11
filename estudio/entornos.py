@@ -24,6 +24,13 @@ ENTORNOS: dict[str, dict] = {
         "python": "3.12",
         "paquetes": ["voxcpm[timestamps]==2.0.3", "stable-ts==2.19.1", "soundfile", "numpy"],
     },
+    # Fase 3: animación del cuerpo con Kimodo (texto → movimiento de esqueleto SOMA → BVH).
+    # Versión fija al commit probado. Su codificador de texto es LLM2Vec sobre Llama 3 (licencia MIT en
+    # los repos de McGill-NLP); requiere ~17 GB de VRAM.
+    "movimiento": {
+        "python": "3.12",
+        "paquetes": ["kimodo @ git+https://github.com/nv-tlabs/kimodo@e1c219c", "numpy"],
+    },
 }
 
 

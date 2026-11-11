@@ -19,6 +19,9 @@ DRIVE = Path(os.environ.get("EDDIE_DRIVE", "/content/drive/MyDrive/EDDIE_STUDIO"
 LOCAL = Path(os.environ.get("EDDIE_LOCAL", "/content/eddie"))
 # Claves y clave del estudio: SIEMPRE fuera de la carpeta de trabajo (que puede estar compartida).
 PRIVADO = Path(os.environ.get("EDDIE_PRIVADO", "/content/drive/MyDrive/EDDIE_PRIVADO"))
+# Preferencias y extensiones de Blender (MPFB) en el disco local; la variable la heredan todos los
+# procesos de Blender que lanza el estudio.
+os.environ.setdefault("BLENDER_USER_RESOURCES", str(LOCAL / "blender_usuario"))
 
 # Versión fija de Blender (LTS). Cambiarla aquí cambia todo el sistema.
 BLENDER_VERSION = os.environ.get("EDDIE_BLENDER_VERSION", "5.2.4")
