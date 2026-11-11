@@ -53,7 +53,7 @@ El estudio se expone como servidor MCP `eddie-studio` por un túnel **temporal**
 |---|---|
 | 0. Conexión y entorno (túnel, servidor, Blender 5.2, render de prueba) | **Completa.** Medido en Colab (RTX PRO 6000 Blackwell 96 GB, driver 580): Cycles 1080x1920 a 128 muestras con OptiX = **2.18 s**; EEVEE = 20.8 s en frío (compilación de shaders) |
 | 1. Biblioteca base | Pendiente |
-| 2. Voz y tiempos (VoxCPM2 + Whisper) | **Construida y probada de punta a punta en CPU** (narrador verificado, narración con 0.9 % de error y 24/24 palabras alineadas). Falta la primera prueba en la GPU de Colab |
+| 2. Voz y tiempos (VoxCPM2 + Whisper) | **Completa en GPU.** Narrador fijo `narrador` (candidata 2). Prueba: guion de 61 palabras → 18.98 s de voz en 31.5 s, 0 % de error, 61/61 palabras alineadas, 3.21 pal/s |
 | 3. Director de escena y animación (Kimodo, Audio2Face) | Pendiente |
 | 4. Render por bloques y montaje | Pendiente |
 | 5. Recursos automáticos (APIs + IA 3D) | Pendiente |
