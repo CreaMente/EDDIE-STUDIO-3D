@@ -369,7 +369,12 @@ def interaccion(rig, item: dict, tray: dict, f0: int, f1: int, info: list, parte
             p = (tray["R"][d0] + tray["L"][d0]) / 2
             ob.matrix_world = Matrix.Translation(p - Vector((0, 0, Vector(ob["tam"]).z * ob.scale[0] / 2)))
         else:
-            ob.matrix_world = Matrix.Translation(tray[mano][d0]) @ tray[f"matriz_{mano}"][d0].to_quaternion().to_matrix().to_4x4()
+            rot_mano = tray[f"matriz_{mano}"][d0].to_quaternion().to_matrix().to_4x4()
+            # «desfase» (m, en los ejes de la mano) saca el objeto de la palma para que no quede tapado.
+            desfase = rot_mano.to_3x3() @ Vector(item.get("desfase", (0.0, 0.0, 0.0)))
+            ob.matrix_world = Matrix.Translation(tray[mano][d0] + desfase) @ rot_mano
+        if item.get("escala"):
+            ob.scale = [float(item["escala"])] * 3
         seguir_mano(ob, tray, mano if tipo == "mano" else "R", d0, d1, d0)
     elif tipo == "agarrar":
         c = cuadro_contacto(tray, mano, d0, d1, "bajo", rig)

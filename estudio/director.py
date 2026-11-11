@@ -146,7 +146,7 @@ def main() -> None:
     args_m = ["--proyecto", str(proyecto), "--plan", json.dumps(plan, ensure_ascii=False),
               "--textos", json.dumps(guion.get("textos", []), ensure_ascii=False),
               "--fundido", str(int(guion.get("fundido", 0))), "--escala", str(escala),
-              "--nombre", a.nombre_video or ("final" if a.calidad == "final" else f"borrador_{a.calidad}"),
+              "--nombre", a.nombre_video or a.calidad,
               "--subtitulos", "0" if guion.get("subtitulos") is False else "1"]
     if guion.get("musica"):
         args_m += ["--musica", guion["musica"], "--musica_db", str(guion.get("musica_db", -20))]

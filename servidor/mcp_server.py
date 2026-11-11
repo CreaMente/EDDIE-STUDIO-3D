@@ -623,7 +623,8 @@ def toma_crear(proyecto: str, personaje: str, secuencia: list[dict], nombre: str
       mensajear_celular, sentarse…) colocan su objeto solas: la puerta con la manija donde llega la mano y
       girando con ella, la silla bajo la cadera, el celular o la taza en la mano. En un tramo se puede pedir
       "objeto": "taza" (catálogo estudio/objetos.json) o {"tipo": "caja", "interaccion": "agarrar"|"soltar"|
-      "lanzar"|"mano"|"caja"|"sentarse"|"puerta"|"tocar"|"boton", "mano": "R"|"L"}; "objeto": false lo quita.
+      "lanzar"|"mano"|"caja"|"sentarse"|"puerta"|"tocar"|"boton", "mano": "R"|"L", "desfase": [x, y, z] (m, ejes de
+      la mano: si el objeto queda tapado por la mano), "escala": 1.0}; "objeto": false lo quita.
     hdri: vacío = el del escenario (id de Poly Haven).
     expresion (elenco): neutral, alegria, dolor, sorpresa, miedo, tristeza, enojo, asco, pensativo;
       intensidad 0–1.5.
