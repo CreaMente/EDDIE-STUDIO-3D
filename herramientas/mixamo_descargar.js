@@ -5,7 +5,9 @@
 //  2. En la pestaña "Characters" selecciona tu personaje (ej. Remy). Las animaciones se adaptan a él.
 //  3. Abre la consola del navegador: F12 → pestaña "Console".
 //  4. Pega TODO este script y pulsa Enter.
-//  5. Si el navegador pregunta "¿Permitir descargas múltiples?", pulsa "Permitir".
+//  5. ANTES de pegarlo, permite las descargas automáticas para mixamo.com (si no, Chrome solo baja la
+//     primera): chrome://settings/content/automaticDownloads → "Pueden descargar varios archivos
+//     automáticamente" → Agregar → [*.]mixamo.com
 //  6. Al final verás un resumen. Sube los .fbx a: Diseños 3d/biblioteca/_entrada/mixamo/animaciones/
 //
 // No es una herramienta oficial de Adobe: usa las mismas llamadas internas que la página de Mixamo.
@@ -26,13 +28,10 @@
     ["turn", false, "girar"],
     ["injured walk", true, "caminar_herido"],
     ["injured idle", false, "herido_reposo"],
-    ["limping", true, "cojear"],
     ["stumble", false, "tropezar"],
     ["falling", false, "caer"],
     ["fall flat", false, "caer_de_frente"],
     ["getting up", false, "levantarse_caido"],
-    ["knee", false, "dolor_rodilla"],
-    ["holding", false, "sujetarse"],
     ["talking", false, "hablar"],
     ["surprised", false, "sorpresa"],
     ["scared", false, "miedo"],
@@ -43,7 +42,6 @@
     ["shrugging", false, "encogerse_hombros"],
     ["pointing", false, "senalar"],
     ["drinking", false, "beber"],
-    ["eating", false, "comer"],
     ["texting", false, "mensajear_celular"],
     ["sleeping", false, "dormir"],
     ["yawn", false, "bostezar"],
