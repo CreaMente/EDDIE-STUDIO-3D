@@ -11,9 +11,9 @@ INTRO = """
 
 1. **GPU:** `Entorno de ejecución → Cambiar tipo de entorno de ejecución` → **RTX PRO 6000**.
 2. **Completa la celda de abajo:**
-   - el link de tu carpeta de Drive;
+   - la URL de tu carpeta de Drive (puede ser de otra cuenta: compártela con la cuenta de este Colab como Editor);
    - tus claves (solo la primera vez).
-3. **Ejecútala** (▶). Autoriza Drive cuando lo pida.
+3. **Ejecútala** (▶). Autoriza cuando lo pida (Drive y acceso a la API).
 4. Al final aparece un panel con la configuración y el botón **📋 Copiar** para pegarla en Antigravity.
 
 La celda se queda corriendo a propósito: mantiene viva la sesión y muestra lo que hace Antigravity.
@@ -22,15 +22,16 @@ Para apagar todo: `Entorno de ejecución → Desconectar y borrar el entorno de 
 
 CELDA = r'''
 #@title 🎬 EDDIE STUDIO 3D — configurar e iniciar
-#@markdown ## 📁 Carpeta de trabajo en Google Drive
-#@markdown Pega el link de la carpeta donde vivirán la biblioteca, los proyectos y los videos.
-#@markdown Si la dejas vacía se usa `Mi unidad/EDDIE_STUDIO`.
-CARPETA_DRIVE = "" #@param {type:"string"}
+#@markdown ## 📁 Carpeta de trabajo en Google Drive (URL)
+#@markdown Pega la URL de la carpeta donde vivirán la biblioteca, los proyectos y los videos
+#@markdown (si la dejas vacía, te la pedirá al ejecutar). **Puede ser de otra cuenta de Google:**
+#@markdown compártela con la cuenta de este Colab como **Editor** (la celda te dice el correo exacto).
+URL_CARPETA_DRIVE = "" #@param {type:"string"}
 
 #@markdown ---
 #@markdown ## 🔑 Claves de API
-#@markdown Solo la primera vez. Se guardan en `Mi unidad/EDDIE_PRIVADO/` (privada, **fuera** de la carpeta
-#@markdown de trabajo). En las siguientes ejecuciones puedes dejar estos campos vacíos o borrarlos.
+#@markdown Solo la primera vez. Se guardan en `Mi unidad/EDDIE_PRIVADO/` de la cuenta de Colab (privada,
+#@markdown **fuera** de la carpeta de trabajo). Después de la primera ejecución bórralas de estos campos.
 HF_TOKEN = "" #@param {type:"string"}
 GITHUB_TOKEN = "" #@param {type:"string"}
 SKETCHFAB_API_TOKEN = "" #@param {type:"string"}
@@ -53,7 +54,10 @@ import json, os, pathlib, subprocess, sys, time
 def paso(msg):
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
-# 1. Drive
+# 1. URL de la carpeta de trabajo y Drive de la cuenta de Colab (para las claves)
+URL_CARPETA_DRIVE = URL_CARPETA_DRIVE.strip() or input("📁 Pega la URL de la carpeta de Google Drive: ").strip()
+if not URL_CARPETA_DRIVE:
+    raise SystemExit("Hace falta la URL de la carpeta de Drive.")
 from google.colab import drive as _gdrive
 if not os.path.isdir("/content/drive/MyDrive"):
     _gdrive.mount("/content/drive")
@@ -99,7 +103,11 @@ os.chdir(DESTINO)
 for _m in [m for m in list(sys.modules) if m == "estudio" or m.startswith("estudio.")]:
     del sys.modules[_m]
 from estudio import arranque, config, drive as edrive
-_carpeta = edrive.resolver(CARPETA_DRIVE)
+try:
+    _carpeta = edrive.conectar_por_url(URL_CARPETA_DRIVE, registro=paso)
+except edrive.CarpetaNoEncontrada as e:
+    print("\n❌ " + str(e))
+    raise SystemExit()
 config.establecer_rutas(drive=_carpeta, privado=PRIVADO)
 paso(f"Carpeta de trabajo: {_carpeta}")
 

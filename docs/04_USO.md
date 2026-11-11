@@ -8,13 +8,18 @@
    - **Desde Drive:** descarga `colab/EDDIE_STUDIO.ipynb` de GitHub, súbelo a tu Drive y ábrelo con Colab.
 2. **GPU:** `Entorno de ejecución → Cambiar tipo de entorno de ejecución` → **RTX PRO 6000**.
 3. **Completa la celda:**
-   - **Carpeta de Drive:** el link de la carpeta donde vivirán la biblioteca, los proyectos y los
-     videos. Si es una carpeta compartida contigo, primero agrégale un acceso directo en "Mi unidad".
-     Vacío = `Mi unidad/EDDIE_STUDIO`.
+   - **URL de la carpeta de Drive** donde vivirán la biblioteca, los proyectos y los videos. Si la dejas
+     vacía, la celda te la pide al ejecutar.
+     - **Puede ser de otra cuenta de Google** (tu Colab y tu Drive son cuentas distintas). Desde la cuenta
+       dueña, comparte la carpeta con la cuenta de Colab como **Editor**. Si falta, la celda te dice
+       exactamente a qué correo compartirla.
+     - El sistema verifica el acceso, crea un acceso directo en el Drive de Colab y trabaja dentro de tu
+       carpeta. Si la carpeta es pública con link, te lo advierte.
    - **Claves:** pégalas la primera vez. Se guardan en `Mi unidad/EDDIE_PRIVADO/`, siempre privada y
      separada de la carpeta de trabajo. Después puedes borrarlas del formulario.
    - **Opciones:** túnel (Cloudflare temporal por defecto) y rama del código.
-4. **Ejecuta la celda (▶)** y autoriza Drive.
+4. **Ejecuta la celda (▶)** y autoriza con la cuenta de Colab las dos ventanas que aparecen (montar
+   Drive y acceso a la API de Drive).
    - La primera vez tarda unos minutos más: descarga Blender y lo guarda en tu carpeta de trabajo.
 5. **Al terminar aparece el panel "EDDIE STUDIO 3D — listo"** con GPU, Blender, carpeta y claves
    cargadas, y la **configuración para Antigravity** con el botón **📋 Copiar configuración**.

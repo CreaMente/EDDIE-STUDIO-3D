@@ -14,7 +14,9 @@ def panel_html(info: dict) -> str:
     claves = d.get("claves_presentes") or []
     url = html.escape(info["url"] + "/mcp")
     carpeta = str(info.get("drive", "—"))
-    if "/drive/" in carpeta:
+    if ".shortcut-targets-by-id/" in carpeta:
+        carpeta = carpeta.rstrip("/").rsplit("/", 1)[-1] + " (carpeta compartida, por URL)"
+    elif "/drive/" in carpeta:
         carpeta = carpeta.split("/drive/", 1)[1].replace("MyDrive", "Mi unidad", 1)
     filas = [
         ("GPU", gpu_txt),
