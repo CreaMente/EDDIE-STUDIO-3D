@@ -205,9 +205,9 @@ def trabajo_estado(id: str, lineas_log: int = 40, esperar_s: float = 0) -> dict:
 
 
 @mcp.tool
-def trabajo_listar(limite: int = 20) -> list[dict]:
+def trabajo_listar(limite: int = 20) -> dict:
     """Lista los trabajos recientes."""
-    return trabajos.listar(limite)
+    return {"trabajos": trabajos.listar(limite)}
 
 
 @mcp.tool
@@ -445,7 +445,7 @@ def proyecto_crear(titulo: str, guion: str = "", duracion_objetivo_s: float = 0)
 
 
 @mcp.tool
-def proyecto_listar() -> list[dict]:
+def proyecto_listar() -> dict:
     """Lista los proyectos guardados en Drive (más recientes primero)."""
     base = config.ruta_drive("proyectos")
     filas = []
@@ -455,7 +455,7 @@ def proyecto_listar() -> list[dict]:
             info = json.loads(meta.read_text(encoding="utf-8")) if meta.exists() else {"id": d.name}
             info["tiene_voz"] = (d / "voz" / "voz.wav").exists()
             filas.append(info)
-    return filas
+    return {"proyectos": filas}
 
 
 # ───────────────────────── voz (Fase 2) ─────────────────────────

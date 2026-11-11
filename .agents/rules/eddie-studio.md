@@ -21,7 +21,7 @@
   Cada etapa es más grave o más sorprendente que la anterior.
 - **Mecanismo real.** Explicar *por qué* pasa, con una comparación cotidiana ("es como…").
 - **Cierre con giro.** Dato final sorprendente o consecuencia irónica. El video termina en la última palabra.
-- **Ritmo de narración:** frases de ~10–14 palabras, 2.6–3.2 palabras por segundo, casi sin silencios.
+- **Ritmo de narración:** frases de ~10–14 palabras, 3.0–3.8 palabras por segundo (ritmo ágil del formato), casi sin silencios.
 - **Lo que se ve no se narra.** La voz agrega información, no describe la imagen.
 - **Datos.** Médicos y científicos verificados, con fuente anotada arriba del `GUION.md`.
   - Si hay incertidumbre, se dice ("en la mayoría de los casos…").

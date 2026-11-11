@@ -53,7 +53,7 @@ El estudio se expone como servidor MCP `eddie-studio` por un túnel **temporal**
 |---|---|
 | 0. Conexión y entorno (túnel, servidor, Blender 5.2, render de prueba) | **Completa.** Medido en Colab (RTX PRO 6000 Blackwell 96 GB, driver 580): Cycles 1080x1920 a 128 muestras con OptiX = **2.18 s**; EEVEE = 20.8 s en frío (compilación de shaders) |
 | 1. Biblioteca base | Pendiente |
-| 2. Voz y tiempos (VoxCPM2 + Whisper) | **Construida** (probada en CPU). Falta la primera prueba en la GPU de Colab |
+| 2. Voz y tiempos (VoxCPM2 + Whisper) | **Construida y probada de punta a punta en CPU** (narrador verificado, narración con 0.9 % de error y 24/24 palabras alineadas). Falta la primera prueba en la GPU de Colab |
 | 3. Director de escena y animación (Kimodo, Audio2Face) | Pendiente |
 | 4. Render por bloques y montaje | Pendiente |
 | 5. Recursos automáticos (APIs + IA 3D) | Pendiente |
@@ -93,7 +93,7 @@ No finjas un video terminado.
 2. `voz_generar(proyecto=<id>, narrador="narrador")` → trabajo. Al terminar revisa el `RESULTADO_JSON`:
    - `frases_con_error` vacío;
    - `cer_promedio` < 0.05;
-   - `palabras_por_s` cerca de 2.6–3.2.
+   - `palabras_por_s` entre 3.0 y 3.8.
    - Si una frase falla, reescríbela más simple y vuelve a generar.
 3. El resultado queda en `proyectos/<id>/voz/`:
    - `voz.wav`;
