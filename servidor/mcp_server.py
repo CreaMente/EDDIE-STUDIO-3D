@@ -476,14 +476,17 @@ def voz_preparar(whisper: str = "large-v3") -> dict:
 
 
 @mcp.tool
-def voz_crear_narrador(nombre: str, descripcion: str, texto_muestra: str, candidatos: int = 3) -> dict:
+def voz_crear_narrador(nombre: str, descripcion: str, texto_muestra: str, candidatos: int = 3,
+                       whisper: str = "large-v3") -> dict:
     """Crea la voz fija del canal con diseño de voz (VoxCPM2). Genera N candidatas en
     Drive: voces/<nombre>/candidatos/. La descripción va en inglés o español, p. ej.
     'Hombre adulto latinoamericano, voz cálida y enérgica de narrador de documentales, ritmo ágil'.
-    El texto de muestra debe ser una o dos frases naturales (~10 s). Devuelve un id de trabajo.
+    El texto de muestra debe ser una o dos frases naturales (~10 s). Cada candidata se verifica con
+    Whisper y se repite hasta que pronuncie bien la frase. Devuelve un id de trabajo.
     Después el PROPIETARIO escucha las candidatas y se elige una con voz_elegir_narrador."""
     return _trabajo_ia("voz", "ia.voz", ["narrador", "--nombre", _slug(nombre), "--descripcion", descripcion,
-                                         "--texto", texto_muestra, "--candidatos", str(max(1, min(candidatos, 6)))],
+                                         "--texto", texto_muestra, "--candidatos", str(max(1, min(candidatos, 6))),
+                                         "--whisper", whisper],
                        f"voz: narrador {nombre}")
 
 
@@ -506,7 +509,8 @@ def voz_elegir_narrador(nombre: str, candidata: int) -> dict:
 
 
 @mcp.tool
-def voz_generar(proyecto: str, narrador: str, tomas: int = 3, max_tomas: int = 6, pausa_s: float = 0.10) -> dict:
+def voz_generar(proyecto: str, narrador: str, tomas: int = 3, max_tomas: int = 6, pausa_s: float = 0.10,
+                whisper: str = "large-v3") -> dict:
     """Narra guion.txt del proyecto con la voz del narrador (VoxCPM2 en la GPU). Por cada frase genera
     varias tomas, Whisper verifica que diga exactamente el guion y se elige la mejor. Resultado en
     proyectos/<id>/voz/: voz.wav (48 kHz), palabras.json (inicio/fin de cada palabra), frases.json y
@@ -516,7 +520,7 @@ def voz_generar(proyecto: str, narrador: str, tomas: int = 3, max_tomas: int = 6
         return {"error": f"No existe {d / 'guion.txt'}. Crea el proyecto con su guion primero."}
     return _trabajo_ia("voz", "ia.voz", ["generar", "--proyecto", str(d), "--narrador", _slug(narrador),
                                          "--tomas", str(tomas), "--max-tomas", str(max_tomas),
-                                         "--pausa", str(pausa_s)], f"voz: generar {d.name}")
+                                         "--pausa", str(pausa_s), "--whisper", whisper], f"voz: generar {d.name}")
 
 
 # ───────────────────────── arranque ─────────────────────────

@@ -124,23 +124,40 @@ def cmd_narrador(a) -> None:
 
     modelo = cargar_voxcpm()
     sr = modelo.tts_model.sample_rate
+    whisper = cargar_whisper(a.whisper)
     carpeta = config.ruta_drive("voces", a.nombre)
     cand = carpeta / "candidatos"
     cand.mkdir(parents=True, exist_ok=True)
     texto = tx.numeros_a_palabras(a.texto)
     salidas = []
     for i in range(1, a.candidatos + 1):
-        log(f"Candidata {i}/{a.candidatos}…")
-        wav = generar(modelo, 1000 + i, text=f"({a.descripcion}){texto}", cfg_value=a.cfg,
-                      inference_timesteps=a.pasos)
-        wav = a_48k(recortar(wav, sr), sr)
+        mejor = None
+        # La pronunciación varía mucho entre semillas: se verifica cada intento con Whisper y se repite
+        # hasta que diga la frase correctamente (o se agoten los intentos).
+        for intento in range(1, a.intentos + 1):
+            semilla = 1000 * i + intento
+            # El espacio tras la descripción evita que el modelo pegue la descripción a la primera palabra.
+            wav = generar(modelo, semilla, text=f"({a.descripcion}) {texto}", cfg_value=a.cfg,
+                          inference_timesteps=a.pasos)
+            wav = a_48k(recortar(wav, sr), sr)
+            tmp = cand / f".prueba_{i}.wav"
+            sf.write(tmp, wav, SR_SALIDA, subtype="PCM_24")
+            error = tx.cer(texto, transcribir(whisper, str(tmp)))
+            log(f"Candidata {i}/{a.candidatos}, intento {intento}: error {error:.1%}")
+            if mejor is None or error < mejor[0]:
+                mejor = (error, wav, semilla)
+            tmp.unlink(missing_ok=True)
+            if error <= a.cer_max:
+                break
+        error, wav, semilla = mejor
         ruta = cand / f"candidata_{i}.wav"
         sf.write(ruta, wav, SR_SALIDA, subtype="PCM_24")
-        salidas.append({"candidata": i, "archivo": str(ruta), "segundos": round(len(wav) / SR_SALIDA, 2)})
+        salidas.append({"candidata": i, "archivo": str(ruta), "segundos": round(len(wav) / SR_SALIDA, 2),
+                        "cer": round(error, 4), "semilla": semilla, "aprobada": error <= a.cer_max})
     (carpeta / "narrador.json").write_text(json.dumps({
         "nombre": a.nombre, "descripcion": a.descripcion, "texto": texto, "candidatos": salidas,
         "elegida": None}, indent=2, ensure_ascii=False), encoding="utf-8")
-    resultado({"ok": True, "narrador": a.nombre, "candidatos": salidas,
+    resultado({"ok": all(c["aprobada"] for c in salidas), "narrador": a.nombre, "candidatos": salidas,
                "siguiente_paso": "El propietario escucha las candidatas en Drive (voces/<nombre>/candidatos) "
                                  "y se elige una con voz_elegir_narrador."})
 
@@ -270,6 +287,9 @@ def main() -> None:
     pn.add_argument("--candidatos", type=int, default=3)
     pn.add_argument("--cfg", type=float, default=2.0)
     pn.add_argument("--pasos", type=int, default=10)
+    pn.add_argument("--intentos", type=int, default=5, help="intentos por candidata hasta pronunciar bien")
+    pn.add_argument("--cer-max", type=float, default=0.05)
+    pn.add_argument("--whisper", default="large-v3")
 
     pg = sub.add_parser("generar")
     pg.add_argument("--proyecto", required=True)
