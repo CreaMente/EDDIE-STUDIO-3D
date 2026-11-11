@@ -52,9 +52,9 @@ El estudio se expone como servidor MCP `eddie-studio` por un túnel **temporal**
 | Fase | Estado |
 |---|---|
 | 0. Conexión y entorno (túnel, servidor, Blender 5.2, render de prueba) | **Completa.** Medido en Colab (RTX PRO 6000 Blackwell 96 GB, driver 580): Cycles 1080x1920 a 128 muestras con OptiX = **2.18 s**; EEVEE = 20.8 s en frío (compilación de shaders) |
-| 1. Biblioteca base | Pendiente |
+| 1. Biblioteca base | **En marcha.** Personaje Mixamo «remy» + 30 animaciones Mixamo importadas (`mixamo_importar`). HDRI y texturas de Poly Haven automáticos |
 | 2. Voz y tiempos (VoxCPM2 + Whisper) | **Completa en GPU.** Narrador fijo `narrador` (candidata 2). Prueba: guion de 61 palabras → 18.98 s de voz en 31.5 s, 0 % de error, 61/61 palabras alineadas, 3.21 pal/s |
-| 3. Director de escena y animación (Kimodo, Audio2Face) | Pendiente |
+| 3. Director de escena y animación | **Construida (probada en CPU):** `toma_crear` encadena animaciones Mixamo con fundidos y acciones nuevas con Kimodo, escenario y render a MP4. Pendiente: Audio2Face (cara) y prueba en GPU |
 | 4. Render por bloques y montaje | Pendiente |
 | 5. Recursos automáticos (APIs + IA 3D) | Pendiente |
 | 6. Look y estilo | Pendiente |
@@ -102,6 +102,27 @@ No finjas un video terminado.
    - `palabras.json`: inicio y fin de cada palabra, para sincronizar las tomas;
    - `frases.json`;
    - `reporte.json`.
+
+## Personajes, animación y tomas (Fases 1 y 3)
+- **Biblioteca:**
+  - `biblioteca_listar()` muestra personajes (con foto `vista.png`: revísala con `ver_imagen`) y animaciones (clave, duración, si es en el lugar).
+  - Los FBX nuevos que el propietario sube a `biblioteca/_entrada/mixamo/` se importan con `mixamo_importar()`.
+- **Personajes principales: Mixamo** (piel profesional, deformación correcta).
+  - Los humanos MPFB quedan solo como respaldo: su malla deforma mal en la cadera.
+- **Armar una toma:** `toma_crear(proyecto, personaje, secuencia, calidad="borrador")` → trabajo → revisa el MP4 con `hoja_de_contacto` → si está bien, repite con `calidad="final"`.
+- **`secuencia`** es la lista de tramos en orden:
+  - `{"anim": "caminar_herido", "segundos": 4, "avance": true}`: animación Mixamo.
+    - `avance: true` hace avanzar a velocidad realista los ciclos grabados en el lugar (caminar, correr).
+  - `{"kimodo": "A person sits on the floor holding their knee in pain.", "segundos": 5}`: acción nueva generada con IA.
+    - El texto va **en inglés**, describiendo el movimiento del cuerpo.
+    - Máximo 10 s por tramo.
+    - Requiere `movimiento_preparar()` una vez y que el propietario haya aceptado la licencia de Meta Llama 3 en Hugging Face.
+  - Opcionales por tramo: `"giro"` en grados (+ = izquierda).
+  - Entre tramos hay un fundido de 10 cuadros.
+- **Prioridad:** usa primero las animaciones de Mixamo, que tienen más calidad. Kimodo solo para lo que no exista.
+- **Cámara:** sigue a la cadera con acercamiento lento. Ajusta con `camara={"angulo", "distancia", "altura", "lente", "acercamiento"}`.
+- **Escenario:** `hdri` y `piso` son ids de Poly Haven. Se descargan solos y quedan en Drive.
+- **Créditos:** se escriben solos en `proyectos/<id>/CREDITOS.txt`.
 
 ## Formato de los videos (resumen; detalle en `.agents/rules/eddie-studio.md`)
 - **Formato:** vertical 1080x1920, 30 fps.

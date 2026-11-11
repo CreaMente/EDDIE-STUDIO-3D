@@ -1,0 +1,208 @@
+"""Orquestador de tomas: biblioteca Mixamo, animación (Mixamo + Kimodo) y render a MP4.
+
+  python -m estudio.tomas mixamo
+      Importa a la biblioteca todo lo nuevo de <DRIVE>/biblioteca/_entrada/mixamo/{personajes,animaciones}.
+
+  python -m estudio.tomas toma --proyecto <id> --nombre t01 --personaje remy \
+      --secuencia '[{"anim": "caminar_herido", "segundos": 4, "avance": true},
+                    {"kimodo": "A person holds their left knee in pain and limps.", "segundos": 5},
+                    {"anim": "herido_reposo", "segundos": 3}]'
+      [--motor EEVEE|CYCLES] [--muestras 64] [--escala 100] [--hdri brown_photostudio_02]
+      [--piso laminate_floor_02] [--audio voz.wav] [--camara '{"angulo": 25, "distancia": 4.2}']
+
+Elementos de la secuencia:
+  {"anim": clave}            animación de la biblioteca Mixamo (ver biblioteca_listar)
+  {"kimodo": "texto en inglés", "segundos": n}   acción generada con Kimodo (≤ 10 s)
+  {"bvh": ruta, "segundos": n}                    movimiento BVH ya existente (SOMA)
+  + opcionales: "segundos", "avance" (m/s o true), "giro" (grados)
+
+Resultado en <DRIVE>/proyectos/<id>/tomas/<nombre>/: toma.mp4, animado.blend, reporte.json.
+Cada paso imprime su progreso; al final una línea RESULTADO_JSON.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import unicodedata
+from pathlib import Path
+
+from . import blender, config, entornos, polyhaven
+
+
+def log(msg: str) -> None:
+    print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
+
+
+def slug(texto: str) -> str:
+    t = unicodedata.normalize("NFD", texto.lower())
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")
+    return re.sub(r"[^a-z0-9]+", "_", t).strip("_")
+
+
+def correr(cmd: list[str], etiqueta: str) -> dict:
+    """Ejecuta un paso, muestra su salida importante y devuelve su RESULTADO_JSON."""
+    log(f"▶ {etiqueta}")
+    t0 = time.time()
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+    resultado, cola = None, []
+    for linea in proc.stdout:
+        linea = linea.rstrip()
+        cola = (cola + [linea])[-40:]
+        if linea.startswith("RESULTADO_JSON: "):
+            resultado = json.loads(linea[len("RESULTADO_JSON: "):])
+        elif linea.startswith("[") or "Error" in linea or "Traceback" in linea:
+            print("   " + linea[:300], flush=True)
+    proc.wait()
+    if proc.returncode != 0 or resultado is None:
+        raise RuntimeError(f"Falló «{etiqueta}» (código {proc.returncode}). Últimas líneas:\n" + "\n".join(cola))
+    log(f"✔ {etiqueta} ({time.time() - t0:.0f} s)")
+    return resultado
+
+
+def ruta_personaje(nombre: str) -> Path:
+    return config.ruta_drive("biblioteca", "personajes", slug(nombre), "personaje.blend")
+
+
+def biblioteca_mixamo() -> Path:
+    return config.ruta_drive("biblioteca", "animaciones", "mixamo.blend")
+
+
+# ───────────────────────── importación Mixamo ─────────────────────────
+
+def cmd_mixamo(a) -> None:
+    entrada = config.ruta_drive("biblioteca", "_entrada", "mixamo")
+    script = blender.script("mixamo_importar.py")
+    hechos = {"personajes": [], "animaciones": None}
+    for fbx in sorted((entrada / "personajes").glob("*.fbx")):
+        destino = ruta_personaje(fbx.stem)
+        if destino.exists() and not a.forzar:
+            continue
+        r = correr(blender.comando(script, ["personaje", "--fbx", str(fbx), "--nombre", slug(fbx.stem),
+                                            "--carpeta", str(destino.parent), "--altura", str(a.altura)]),
+                   f"personaje {fbx.stem}")
+        hechos["personajes"].append({"nombre": r["nombre"], "vista": r["vista"], "altura_m": r["altura_m"]})
+    anims = entrada / "animaciones"
+    fbxs = sorted(anims.glob("*.fbx"))
+    blend = biblioteca_mixamo()
+    if fbxs and (a.forzar or not blend.exists() or max(f.stat().st_mtime for f in fbxs) > blend.stat().st_mtime):
+        indice = anims / "mixamo_indice.json"
+        r = correr(blender.comando(script, ["animaciones", "--carpeta_fbx", str(anims), "--salida", str(blend),
+                                            "--indice", str(indice) if indice.exists() else ""]),
+                   f"{len(fbxs)} animaciones")
+        hechos["animaciones"] = {"total": r["animaciones"], "errores": r["errores"], "claves": r["claves"]}
+    print("RESULTADO_JSON: " + json.dumps({"ok": True, **hechos}, ensure_ascii=False), flush=True)
+
+
+# ───────────────────────── toma completa ─────────────────────────
+
+def cmd_toma(a) -> None:
+    t0 = time.time()
+    proyecto = Path(a.proyecto) if os.path.isabs(a.proyecto) else config.ruta_drive("proyectos", a.proyecto)
+    carpeta = proyecto / "tomas" / slug(a.nombre)
+    carpeta.mkdir(parents=True, exist_ok=True)
+    personaje = ruta_personaje(a.personaje)
+    if not personaje.exists():
+        raise SystemExit(f"No existe el personaje «{a.personaje}» en la biblioteca ({personaje}). "
+                         "Usa mixamo_importar o biblioteca_listar.")
+    secuencia = json.loads(a.secuencia)
+    bibliotecas = [str(biblioteca_mixamo())]
+    pasos = {}
+
+    # 1. Acciones generadas con Kimodo (o BVH dados) → adaptadas al personaje → acciones con nombre.
+    for i, item in enumerate(secuencia):
+        if "kimodo" in item or "bvh" in item:
+            nombre_acc = f"kimodo_{i:02d}"
+            bvh = item.get("bvh")
+            if "kimodo" in item:
+                entornos.asegurar("movimiento", log)
+                seg = float(item.get("segundos", 5))
+                r = correr(entornos.comando("movimiento", "ia.movimiento", "generar",
+                                            "--textos", json.dumps([item["kimodo"]]),
+                                            "--duraciones", json.dumps([min(seg, 10.0)]),
+                                            "--salida", str(carpeta / "kimodo"), "--nombre", nombre_acc,
+                                            "--semilla", str(item.get("semilla", 42))),
+                           f"Kimodo: «{item['kimodo'][:60]}»")
+                bvh = r["bvh"]
+                pasos[nombre_acc] = r
+            blend_acc = carpeta / "kimodo" / f"{nombre_acc}.blend"
+            correr(blender.comando(blender.script("animar_personaje.py"),
+                                   ["--personaje", str(personaje), "--bvh", str(bvh), "--salida", str(blend_acc),
+                                    "--accion", nombre_acc]),
+                   f"adaptar movimiento {nombre_acc} al personaje")
+            bibliotecas.append(str(blend_acc))
+            item = {k: v for k, v in item.items() if k not in ("kimodo", "bvh", "semilla")}
+            item["anim"] = nombre_acc
+            secuencia[i] = item
+
+    # 2. Encadenar animaciones.
+    animado = carpeta / "animado.blend"
+    pasos["animacion"] = correr(blender.comando(blender.script("animar_mixamo.py"),
+                                                ["--personaje", str(personaje), "--biblioteca", ",".join(bibliotecas),
+                                                 "--secuencia", json.dumps(secuencia), "--salida", str(animado),
+                                                 "--mezcla", str(a.mezcla)]),
+                                "encadenar animaciones")
+
+    # 3. Escenario (Poly Haven) y render.
+    res_hdri = "4k" if a.escala >= 100 else "2k"
+    hdri = polyhaven.hdri(a.hdri, res_hdri)
+    piso = polyhaven.textura(a.piso, "2k" if a.escala >= 100 else "1k")
+    camara = json.loads(a.camara or "{}")
+    args = ["--animado", str(animado), "--salida", str(carpeta / "toma.mp4"), "--hdri", str(hdri),
+            "--piso", json.dumps(piso), "--motor", a.motor, "--muestras", str(a.muestras), "--escala", str(a.escala)]
+    for clave, arg in (("angulo", "--angulo"), ("distancia", "--distancia"), ("altura", "--altura_camara"),
+                       ("lente", "--lente"), ("acercamiento", "--acercamiento"), ("hdri_rotacion", "--hdri_rotacion")):
+        if clave in camara:
+            args += [arg, str(camara[clave])]
+    if a.audio:
+        args += ["--audio", a.audio]
+    pasos["render"] = correr(blender.comando(blender.script("escena_toma.py"), args), "render de la toma")
+
+    creditos = proyecto / "CREDITOS.txt"
+    lineas = set(creditos.read_text(encoding="utf-8").splitlines()) if creditos.exists() else set()
+    lineas |= {f"Iluminación HDRI «{a.hdri}» y textura «{a.piso}»: Poly Haven (polyhaven.com), CC0.",
+               "Personajes y animaciones: Mixamo (Adobe), uso libre de regalías."}
+    if any(k.startswith("kimodo_") for k in pasos):
+        lineas.add("Animación generada con NVIDIA Kimodo (NVIDIA Open Model License); "
+                   "codificador de texto Built with Meta Llama 3.")
+    creditos.write_text("\n".join(sorted(lineas)) + "\n", encoding="utf-8")
+
+    reporte = {"ok": True, "mp4": str(carpeta / "toma.mp4"), "carpeta": str(carpeta),
+               "segundos_video": pasos["animacion"]["segundos"], "secuencia": secuencia,
+               "render": {k: pasos["render"].get(k) for k in ("motor", "resolucion", "cuadros", "segundos_por_cuadro",
+                                                              "segundos_render", "backend", "con_audio")},
+               "segundos_total": round(time.time() - t0, 1)}
+    (carpeta / "reporte.json").write_text(json.dumps(reporte, indent=1, ensure_ascii=False), encoding="utf-8")
+    print("RESULTADO_JSON: " + json.dumps(reporte, ensure_ascii=False), flush=True)
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(prog="estudio.tomas")
+    sub = p.add_subparsers(dest="cmd", required=True)
+    pm = sub.add_parser("mixamo")
+    pm.add_argument("--altura", type=float, default=1.75)
+    pm.add_argument("--forzar", action="store_true")
+    pt = sub.add_parser("toma")
+    pt.add_argument("--proyecto", required=True)
+    pt.add_argument("--nombre", default="toma")
+    pt.add_argument("--personaje", required=True)
+    pt.add_argument("--secuencia", required=True)
+    pt.add_argument("--motor", default="EEVEE", choices=["EEVEE", "CYCLES"])
+    pt.add_argument("--muestras", type=int, default=64)
+    pt.add_argument("--escala", type=int, default=100)
+    pt.add_argument("--hdri", default="brown_photostudio_02")
+    pt.add_argument("--piso", default="laminate_floor_02")
+    pt.add_argument("--audio", default="")
+    pt.add_argument("--camara", default="")
+    pt.add_argument("--mezcla", type=int, default=10)
+    a = p.parse_args()
+    {"mixamo": cmd_mixamo, "toma": cmd_toma}[a.cmd](a)
+
+
+if __name__ == "__main__":
+    main()

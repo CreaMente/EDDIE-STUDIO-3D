@@ -527,6 +527,75 @@ def voz_generar(proyecto: str, narrador: str, tomas: int = 3, max_tomas: int = 6
                        f"voz: generar {d.name}")
 
 
+# ───────────────────────── biblioteca y tomas (Fases 1 y 3) ─────────────────────────
+
+def _trabajo_estudio(args: list[str], nombre: str) -> dict:
+    """Trabajo en segundo plano con el orquestador de tomas (python -m estudio.tomas …)."""
+    return trabajos.iniciar(shlex.join([sys.executable, "-m", "estudio.tomas", *args]), nombre, str(config.REPO),
+                            entorno={"PYTHONPATH": _entorno()["PYTHONPATH"]})
+
+
+@mcp.tool
+def mixamo_importar(forzar: bool = False) -> dict:
+    """Importa a la biblioteca lo nuevo de biblioteca/_entrada/mixamo/: personajes (FBX con piel, T-pose)
+    y animaciones (FBX sin piel). Ajusta estatura a 1.75 m, mejora materiales y crea el catálogo.
+    Devuelve un id de trabajo."""
+    return _trabajo_estudio(["mixamo"] + (["--forzar"] if forzar else []), "biblioteca: importar Mixamo")
+
+
+@mcp.tool
+def biblioteca_listar() -> dict:
+    """Personajes (con su foto de vista) y animaciones disponibles (clave, duración, si es en el lugar)."""
+    base = config.ruta_drive("biblioteca")
+    personajes = []
+    for j in sorted((base / "personajes").glob("*/personaje.json")):
+        d = json.loads(j.read_text(encoding="utf-8"))
+        personajes.append({"nombre": d.get("nombre"), "origen": d.get("origen", "mpfb"), "vista": d.get("vista"),
+                           "altura_m": d.get("altura_m")})
+    cat = base / "animaciones" / "mixamo.json"
+    animaciones = []
+    if cat.exists():
+        for a in json.loads(cat.read_text(encoding="utf-8"))["animaciones"]:
+            animaciones.append({k: a[k] for k in ("clave", "mixamo", "segundos", "en_lugar")})
+    return {"personajes": personajes, "animaciones": animaciones,
+            "nota": "Acciones que no estén aquí: usa {\"kimodo\": \"descripción en inglés\"} en la secuencia."}
+
+
+@mcp.tool
+def movimiento_preparar() -> dict:
+    """Instala Kimodo y descarga su modelo y codificador de texto (Llama 3 8B, ~17 GB; queda en Drive).
+    Requiere que el propietario haya aceptado la licencia de meta-llama/Meta-Llama-3-8B-Instruct en
+    Hugging Face con la cuenta de su HF_TOKEN. Devuelve un id de trabajo."""
+    return _trabajo_ia("movimiento", "ia.movimiento", ["preparar"], "movimiento: preparar Kimodo")
+
+
+@mcp.tool
+def toma_crear(proyecto: str, personaje: str, secuencia: list[dict], nombre: str = "toma",
+               motor: str = "EEVEE", calidad: str = "final", hdri: str = "brown_photostudio_02",
+               piso: str = "laminate_floor_02", con_voz: bool = False, camara: dict | None = None) -> dict:
+    """Arma y renderiza una toma 3D a MP4 vertical 1080x1920.
+
+    secuencia: lista de tramos, en orden. Cada tramo es uno de:
+      {"anim": "caminar_herido", "segundos": 4, "avance": true}   ← animación de la biblioteca Mixamo
+      {"kimodo": "A person holds their knee in pain.", "segundos": 5}  ← acción nueva con IA (texto EN INGLÉS)
+    opcionales por tramo: "segundos", "avance" (m/s o true), "giro" (grados).
+    calidad: "borrador" (25 %, 16 muestras), "previa" (50 %, 32) o "final" (100 %, 64; Cycles: 128).
+    camara: {"angulo": 25, "distancia": 4.2, "altura": 1.45, "lente": 35, "acercamiento": 0.25}.
+    con_voz: añade proyectos/<id>/voz/voz.wav como audio.
+    Devuelve un id de trabajo; al terminar revisa el MP4 con hoja_de_contacto."""
+    perfiles = {"borrador": (25, 16), "previa": (50, 32), "final": (100, 128 if motor.upper() == "CYCLES" else 64)}
+    escala, muestras = perfiles.get(calidad, perfiles["final"])
+    d = _proyecto(proyecto)
+    args = ["toma", "--proyecto", str(d), "--nombre", nombre, "--personaje", personaje,
+            "--secuencia", json.dumps(secuencia, ensure_ascii=False), "--motor", motor.upper(),
+            "--muestras", str(muestras), "--escala", str(escala), "--hdri", hdri, "--piso", piso]
+    if con_voz:
+        args += ["--audio", str(d / "voz" / "voz.wav")]
+    if camara:
+        args += ["--camara", json.dumps(camara)]
+    return _trabajo_estudio(args, f"toma {nombre} ({calidad})")
+
+
 # ───────────────────────── arranque ─────────────────────────
 
 def crear_app():

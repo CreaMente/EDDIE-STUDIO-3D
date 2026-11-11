@@ -66,6 +66,7 @@ def main() -> None:
     p.add_argument("--salida", required=True)
     p.add_argument("--hoja", default="")
     p.add_argument("--cuadros", type=int, default=8)
+    p.add_argument("--accion", default="", help="nombre para la acción resultante (para usarla en una secuencia)")
     a = p.parse_args(comun.argumentos())
     t0 = time.time()
 
@@ -163,6 +164,9 @@ def main() -> None:
         pb.keyframe_insert("location", frame=f)
 
     bpy.data.objects.remove(fuente, do_unlink=True)
+    if a.accion and destino.animation_data and destino.animation_data.action:
+        destino.animation_data.action.name = a.accion
+        destino.animation_data.action.use_fake_user = True
 
     # Pies al piso: el punto más bajo de los dedos en todo el clip debe quedar a ras del suelo.
     dedos = [destino.pose.bones[t] for t in mapa_t if t.endswith("ToeBase") or t.endswith("Foot")]

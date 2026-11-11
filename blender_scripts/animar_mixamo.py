@@ -37,7 +37,7 @@ VELOCIDADES = {"caminar": 1.3, "caminar_herido": 0.6, "correr": 3.6}  # m/s por 
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--personaje", required=True)
-    p.add_argument("--biblioteca", required=True)
+    p.add_argument("--biblioteca", required=True, help="uno o varios .blend con acciones, separados por coma")
     p.add_argument("--secuencia", required=True)
     p.add_argument("--salida", required=True)
     p.add_argument("--mezcla", type=int, default=10, help="cuadros de fundido entre animaciones")
@@ -52,12 +52,15 @@ def main() -> None:
     esc.render.fps = 30
     rig = next(o for o in esc.objects if o.type == "ARMATURE")
 
-    necesarias = sorted({c["anim"] for c in secuencia})
-    with bpy.data.libraries.load(a.biblioteca, link=False) as (origen, destino):
-        faltan = [n for n in necesarias if n not in origen.actions]
-        if faltan:
-            raise SystemExit(f"Animaciones que no están en la biblioteca: {faltan}. Disponibles: {sorted(origen.actions)}")
-        destino.actions = necesarias
+    necesarias = {c["anim"] for c in secuencia}
+    disponibles = set()
+    for lib in [x for x in a.biblioteca.split(",") if x]:
+        with bpy.data.libraries.load(lib, link=False) as (origen, destino):
+            disponibles |= set(origen.actions)
+            destino.actions = [n for n in origen.actions if n in necesarias and n not in bpy.data.actions]
+    faltan = sorted(n for n in necesarias if n not in bpy.data.actions)
+    if faltan:
+        raise SystemExit(f"Animaciones que no están en la biblioteca: {faltan}. Disponibles: {sorted(disponibles)}")
 
     rig.animation_data_create()
     rig.animation_data.action = None
