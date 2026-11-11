@@ -1,6 +1,7 @@
 """Claves de API y clave del estudio.
 
-Las claves viven en Drive privado (privado/claves.json) y/o en Colab Secrets.
+Las claves viven en Mi unidad/EDDIE_PRIVADO/claves.json (fuera de la carpeta de trabajo, que puede
+estar compartida) y/o en Colab Secrets.
 Nunca se escriben en el repositorio ni se imprimen completas.
 """
 
@@ -34,7 +35,7 @@ OBLIGATORIAS = ["HF_TOKEN"]
 
 
 def archivo_claves() -> Path:
-    return config.ruta_drive("privado", "claves.json")
+    return config.ruta_privada("claves.json")
 
 
 def _proteger(ruta: Path) -> None:
@@ -126,7 +127,7 @@ def resumen(claves: dict[str, str]) -> list[dict]:
 
 def clave_estudio() -> str:
     """Clave que protege el servidor MCP. Se genera una vez y se guarda en Drive privado."""
-    p = config.ruta_drive("privado", "clave_estudio.txt")
+    p = config.ruta_privada("clave_estudio.txt")
     if p.exists():
         v = p.read_text(encoding="utf-8").strip()
         if len(v) >= 32:

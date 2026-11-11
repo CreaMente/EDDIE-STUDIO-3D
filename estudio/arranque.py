@@ -18,7 +18,7 @@ import time
 import urllib.error
 import urllib.request
 
-from . import blender, claves, config, sistema, tunel
+from . import blender, claves, config, presentacion, sistema, tunel
 
 
 def _log(msg: str) -> None:
@@ -82,7 +82,7 @@ def config_antigravity(url: str, clave: str) -> dict:
     }
 
 
-def iniciar(instalar_blender: bool = True, preferir_ngrok: bool = False) -> dict:
+def iniciar(instalar_blender: bool = True, preferir_ngrok: bool = False, panel: bool = False) -> dict:
     t0 = time.time()
     _log("Creando carpetas…")
     config.crear_estructura()
@@ -126,10 +126,16 @@ def iniciar(instalar_blender: bool = True, preferir_ngrok: bool = False) -> dict
         _log("⚠️  El túnel aún no responde desde internet; suele tardar menos de un minuto más.")
 
     cfg = config_antigravity(url, clave)
-    config.ruta_drive("privado", "conexion_actual.json").write_text(
+    config.ruta_privada("conexion_actual.json").write_text(
         json.dumps({"url": url, **cfg}, indent=2), encoding="utf-8")
 
     diag = sistema.diagnostico(sorted(todas))
+    resultado = {"url": url, "clave": clave, "antigravity": cfg, "diagnostico": diag,
+                 "drive": str(config.DRIVE), "tipo_tunel": info.get("tipo"), "segundos": time.time() - t0}
+    if panel:
+        _log("Listo.")
+        presentacion.mostrar(resultado)
+        return resultado
     gpu = diag["gpu"][0]["nombre"] if diag["gpu"] else "SIN GPU"
     barra = "═" * 72
     print(f"\n{barra}\n  EDDIE STUDIO 3D — LISTO en {time.time() - t0:.0f} s   (GPU: {gpu})\n{barra}")
@@ -138,8 +144,8 @@ def iniciar(instalar_blender: bool = True, preferir_ngrok: bool = False) -> dict
     print("\n  En Antigravity: panel del agente → ⋯ → MCP Servers → Manage MCP Servers →")
     print("  View raw config, pega esto (reemplaza el bloque eddie-studio si ya existe) y pulsa Refresh:\n")
     print(json.dumps(cfg, indent=2))
-    print(f"\n  (También quedó guardado en Drive: EDDIE_STUDIO/privado/conexion_actual.json)\n{barra}\n")
-    return {"url": url, "clave": clave, "antigravity": cfg, "diagnostico": diag}
+    print(f"\n  (También quedó guardado en Drive: EDDIE_PRIVADO/conexion_actual.json)\n{barra}\n")
+    return resultado
 
 
 def vigilar(intervalo: float = 5.0) -> None:

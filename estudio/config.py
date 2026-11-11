@@ -17,6 +17,8 @@ REPO = Path(__file__).resolve().parent.parent
 
 DRIVE = Path(os.environ.get("EDDIE_DRIVE", "/content/drive/MyDrive/EDDIE_STUDIO"))
 LOCAL = Path(os.environ.get("EDDIE_LOCAL", "/content/eddie"))
+# Claves y clave del estudio: SIEMPRE fuera de la carpeta de trabajo (que puede estar compartida).
+PRIVADO = Path(os.environ.get("EDDIE_PRIVADO", "/content/drive/MyDrive/EDDIE_PRIVADO"))
 
 # Versión fija de Blender (LTS). Cambiarla aquí cambia todo el sistema.
 BLENDER_VERSION = os.environ.get("EDDIE_BLENDER_VERSION", "5.2.4")
@@ -28,7 +30,6 @@ PUERTO_SERVIDOR = int(os.environ.get("EDDIE_PUERTO", "8765"))
 
 # Estructura permanente en Drive (ver docs/01_ARQUITECTURA.md §6).
 CARPETAS_DRIVE = [
-    "privado",
     "sistema",
     "modelos_ia",
     "voces",
@@ -51,6 +52,21 @@ CARPETAS_DRIVE = [
 CARPETAS_LOCAL = ["bin", "blender", "trabajos", "tmp", "cache", "logs"]
 
 
+def establecer_rutas(drive: str | Path | None = None, privado: str | Path | None = None) -> None:
+    """Cambia las rutas en tiempo de ejecución (y en el entorno, para los subprocesos)."""
+    global DRIVE, PRIVADO
+    if drive:
+        DRIVE = Path(drive)
+        os.environ["EDDIE_DRIVE"] = str(DRIVE)
+    if privado:
+        PRIVADO = Path(privado)
+        os.environ["EDDIE_PRIVADO"] = str(PRIVADO)
+
+
+def ruta_privada(*partes: str) -> Path:
+    return PRIVADO.joinpath(*partes)
+
+
 def ruta_drive(*partes: str) -> Path:
     return DRIVE.joinpath(*partes)
 
@@ -62,10 +78,13 @@ def ruta_local(*partes: str) -> Path:
 def crear_estructura() -> dict:
     """Crea las carpetas de Drive y locales. Es idempotente."""
     creadas = []
+    if not PRIVADO.exists():
+        PRIVADO.mkdir(parents=True, exist_ok=True)
+        creadas.append(str(PRIVADO))
     for base, lista in ((DRIVE, CARPETAS_DRIVE), (LOCAL, CARPETAS_LOCAL)):
         for c in lista:
             p = base / c
             if not p.exists():
                 p.mkdir(parents=True, exist_ok=True)
                 creadas.append(str(p))
-    return {"drive": str(DRIVE), "local": str(LOCAL), "creadas": creadas}
+    return {"drive": str(DRIVE), "privado": str(PRIVADO), "local": str(LOCAL), "creadas": creadas}
