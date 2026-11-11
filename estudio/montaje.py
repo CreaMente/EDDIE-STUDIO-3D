@@ -34,6 +34,9 @@ from . import blender, config
 from .tomas import correr, log, slug
 
 FPS = 30
+# El AAC sube el pico real ~0.6 dB al codificar (medido en Colab: -1.50 → -0.93 dBTP), así que la mezcla
+# se deja en -2.0 dBTP para que el MP4 final quede por debajo de -1.
+PICO_OBJETIVO = -2.0
 
 
 def duracion_medio(ruta: Path) -> float:
@@ -44,7 +47,7 @@ def duracion_medio(ruta: Path) -> float:
 
 def medir_sonoridad(ruta: Path, filtro_previo: str = "") -> dict:
     """Mide con el filtro loudnorm de ffmpeg: sonoridad integrada (LUFS), pico real (dBTP) y rango."""
-    filtro = (filtro_previo + "," if filtro_previo else "") + "loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json"
+    filtro = (filtro_previo + "," if filtro_previo else "") + f"loudnorm=I=-14:TP={PICO_OBJETIVO}:LRA=11:print_format=json"
     out = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(ruta), "-af", filtro, "-f", "null", "-"],
                          capture_output=True, text=True)
     m = re.search(r"\{[^{}]*\"input_i\"[^{}]*\}", out.stderr, re.S)
@@ -70,7 +73,7 @@ def tiempo_de(item: dict, frases: list, palabras: list, que: str) -> float | Non
 
 
 def mezclar_audio(voz: Path, musica: str, musica_db: float, duracion: float, salida: Path) -> dict:
-    """Voz (+ música atenuada que baja sola cuando habla el narrador) → -14 LUFS, pico ≤ -1.5 dBTP.
+    """Voz (+ música atenuada que baja sola cuando habla el narrador) → -14 LUFS, pico ≤ -2 dBTP.
 
     Normalización en dos pasadas: primero se mide y luego se corrige en modo lineal (no deforma la voz)."""
     entradas = ["-i", str(voz)]
@@ -87,7 +90,7 @@ def mezclar_audio(voz: Path, musica: str, musica_db: float, duracion: float, sal
     subprocess.run(["ffmpeg", "-v", "error", "-y", *entradas, "-filter_complex", grafo, "-map", "[mez]",
                     "-ac", "2", "-c:a", "pcm_s24le", str(previa)], check=True)
     m = medir_sonoridad(previa)
-    filtro = (f"loudnorm=I=-14:TP=-1.5:LRA=11:measured_I={m['input_i']}:measured_TP={m['input_tp']}:"
+    filtro = (f"loudnorm=I=-14:TP={PICO_OBJETIVO}:LRA=11:measured_I={m['input_i']}:measured_TP={m['input_tp']}:"
               f"measured_LRA={m['input_lra']}:measured_thresh={m['input_thresh']}:offset={m['target_offset']}:"
               "linear=true")
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(previa), "-af", filtro + ",aresample=48000",
@@ -220,6 +223,17 @@ def main() -> None:
                     "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest", "-movflags", "+faststart",
                     str(local_mp4)], check=True)
     medida = medir_sonoridad(local_mp4)
+    if float(medida["input_tp"]) > -1.1:
+        # Segunda pasada solo del audio: se baja lo justo para que el pico real quede en -1.2 dBTP.
+        ganancia = -1.2 - float(medida["input_tp"])
+        log(f"▶ pico real {medida['input_tp']} dBTP tras el AAC: ajuste de {ganancia:.2f} dB")
+        corregido = tmp / "final_corregido.mp4"
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(local_mp4), "-i", str(audio), "-map", "0:v",
+                        "-map", "1:a", "-c:v", "copy", "-af", f"volume={ganancia:.2f}dB", "-c:a", "aac",
+                        "-b:a", "192k", "-ar", "48000", "-shortest", "-movflags", "+faststart", str(corregido)],
+                       check=True)
+        corregido.replace(local_mp4)
+        medida = medir_sonoridad(local_mp4)
     shutil.copyfile(local_mp4, destino)
     entrega = config.ruta_drive("entregas", f"{proyecto.name}_{slug(a.nombre)}.mp4")
     entrega.parent.mkdir(parents=True, exist_ok=True)

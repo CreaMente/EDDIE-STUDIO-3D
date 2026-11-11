@@ -41,8 +41,8 @@ El estudio se expone como servidor MCP `eddie-studio` por un túnel **temporal**
    - El denoiser de OptiX **no** está disponible: falta `nvoptix.bin` en el contenedor.
      `comun.configurar_denoiser()` usa OpenImageDenoise en la GPU automáticamente. Úsala siempre.
    - **Usa siempre `motor="CYCLES"`**, también en borradores: en Colab EEVEE no encuentra el EGL de NVIDIA
-     y renderiza en CPU (`EGL_BAD_MATCH`, 1.9 s/cuadro a 270×480). Cycles con OptiX: ~0.15 s/cuadro en
-     borrador y ~1.6 s/cuadro a 1080×1920 con 128 muestras.
+     y renderiza en CPU (`EGL_BAD_MATCH`, 1.9 s/cuadro a 270×480). Cycles con OptiX y `bloques=3`:
+     ~0.06 s/cuadro en borrador y ~0.85 s/cuadro a 1080×1920 con 128 muestras (Kimodo sube a ~1.2).
 7. **Puedes editar el sistema.** Con `leer_archivo`, `editar_archivo` y `escribir_archivo` cambias el
    código del repo clonado. Después usa `reiniciar_servidor` si cambiaste `servidor/` o `estudio/`.
    - Los cambios en Colab **se pierden al cerrar la sesión** si no se suben a GitHub.
@@ -60,7 +60,7 @@ El estudio se expone como servidor MCP `eddie-studio` por un túnel **temporal**
 | 1. Biblioteca base | **En marcha.** Personaje Mixamo «remy» + 30 animaciones Mixamo importadas (`mixamo_importar`). HDRI y texturas de Poly Haven automáticos |
 | 2. Voz y tiempos (VoxCPM2 + Whisper) | **Completa en GPU.** Narrador fijo `narrador` (candidata 2). Prueba: guion de 61 palabras → 18.98 s de voz en 31.5 s, 0 % de error, 61/61 palabras alineadas, 3.21 pal/s |
 | 3. Director de escena y animación | **Funciona en GPU.** `toma_crear` encadena Mixamo + Kimodo (texto → movimiento en ~23 s, retargeting a Mixamo con anclaje al piso) y renderiza a MP4. Pendiente: Audio2Face (cara) |
-| 4. Render por bloques y montaje | **Construida (probada en CPU con Blender 5.2):** render en bloques paralelos con cuadros en disco local; `video_montar` monta las tomas alineadas a la voz, texto en pantalla, música y audio a -14 LUFS. Pendiente: medir en GPU |
+| 4. Render por bloques y montaje | **Completa en GPU.** `bloques=3` (lo óptimo; 5 no mejora): 1080x1920 a 128 muestras en 0.85 s/cuadro (antes 1.56). Primer video completo (`20261111-1308-rodilla-rota-sin-medico`, 17.4 s, 4 tomas): tomas finales + montaje en 10 min 47 s, -14.04 LUFS |
 | 5. Recursos automáticos (APIs + IA 3D) | Pendiente |
 | 6. Look y estilo | Pendiente |
 | 7. Robustez | Pendiente |
