@@ -2,9 +2,9 @@
 
 ## Dónde van las claves
 
-**La primera celda de la libreta te pide cada clave en un campo oculto.** Las pegas **una sola vez** y
-se guardan en un archivo privado de tu Drive (`Mi unidad/EDDIE_STUDIO/privado/claves.json`); no quedan
-escritas dentro de la libreta. Desde
+**La celda única de la libreta tiene un campo para cada clave.** Las pegas **una sola vez** y se guardan
+en `Mi unidad/EDDIE_PRIVADO/claves.json`, una carpeta privada separada de tu carpeta de trabajo (que
+puede estar compartida). Después de la primera ejecución puedes borrarlas del formulario. Desde
 entonces se cargan solas en cada ejecución. También funciona si las pones en **Colab Secrets** (el
 icono 🔑) con los mismos nombres; si una clave está en los dos lugares, gana Colab Secrets.
 

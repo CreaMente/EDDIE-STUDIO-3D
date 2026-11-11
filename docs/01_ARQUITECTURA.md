@@ -177,7 +177,9 @@ escala real, orientación, materiales corregidos, foto de prueba y etiquetas. La
 ## 6. Drive Pro: organización
 
 ```
-Mi unidad/EDDIE_STUDIO/
+Mi unidad/EDDIE_PRIVADO/     claves de API, clave del estudio, conexión actual (siempre privada)
+
+<carpeta de trabajo del link> (por defecto Mi unidad/EDDIE_STUDIO/)
 ├── sistema/          blender-5.2-linux.tar.xz, ruedas de Python precompiladas
 ├── modelos_ia/       voz (VoxCPM2, CosyVoice3, Chatterbox), Whisper, SigLIP 2, música   (~40–60 GB)
 ├── voces/            la voz fija del narrador (referencia) para que todos los videos suenen igual

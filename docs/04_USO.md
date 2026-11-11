@@ -1,40 +1,35 @@
 # EDDIE STUDIO 3D — Cómo usarlo
 
-## Una sola vez
+## Todo desde una sola celda
 
-1. **Activa las APIs** de `docs/03_APIS_Y_CLAVES.md`. Como mínimo **Hugging Face** y, si el repo es
-   privado, **GitHub**.
-2. **Abre la libreta en Colab.** Elige una de estas dos formas:
-   - **Desde GitHub:** en Colab, `Archivo → Abrir cuaderno → GitHub`. Autoriza el acceso a tus repos
-     privados y abre `CreaMente/EDDIE-STUDIO-3D` → `colab/EDDIE_STUDIO.ipynb`. Elige la rama
-     `claude/happy-shannon-dzepo9` hasta que se fusione con `main`.
-   - **Desde tu Drive:** descarga `colab/EDDIE_STUDIO.ipynb` de GitHub, súbelo a tu Drive y ábrelo con Colab.
-3. **Elige la GPU:** `Entorno de ejecución → Cambiar tipo de entorno de ejecución` → **RTX PRO 6000**.
-4. **Ejecuta la celda 🔑 1. Claves.**
-   - Autoriza Drive.
-   - Pega cada clave cuando la pida; deja vacío y pulsa Enter para saltar una.
-5. **En Antigravity, abre como espacio de trabajo una copia local de este repositorio:**
-   ```bash
-   git clone https://github.com/CreaMente/EDDIE-STUDIO-3D.git
-   ```
-   Así Antigravity lee `AGENTS.md` y `.agents/rules/` y sabe cómo trabajar.
-
-## Cada vez que vayas a trabajar
-
-1. **En Colab, ejecuta 🚀 2. Iniciar.**
-   - La primera vez tarda más: descarga Blender y lo guarda en Drive.
-   - Al final verás la dirección, la clave y un bloque JSON.
-2. **En Antigravity**, panel del agente → `⋯` → **MCP Servers → Manage MCP Servers → View raw config**:
-   - pega el bloque (si ya había un `eddie-studio`, reemplázalo);
-   - guarda y pulsa **Refresh**.
-3. **Pídele lo que quieras.** Para la primera sesión:
+1. **Abre la libreta en Colab.** Elige una de estas dos formas:
+   - **Desde GitHub:** en Colab, `Archivo → Abrir cuaderno → GitHub`. Autoriza tus repos privados y abre
+     `CreaMente/EDDIE-STUDIO-3D` → `colab/EDDIE_STUDIO.ipynb` (rama `claude/happy-shannon-dzepo9`).
+   - **Desde Drive:** descarga `colab/EDDIE_STUDIO.ipynb` de GitHub, súbelo a tu Drive y ábrelo con Colab.
+2. **GPU:** `Entorno de ejecución → Cambiar tipo de entorno de ejecución` → **RTX PRO 6000**.
+3. **Completa la celda:**
+   - **Carpeta de Drive:** el link de la carpeta donde vivirán la biblioteca, los proyectos y los
+     videos. Si es una carpeta compartida contigo, primero agrégale un acceso directo en "Mi unidad".
+     Vacío = `Mi unidad/EDDIE_STUDIO`.
+   - **Claves:** pégalas la primera vez. Se guardan en `Mi unidad/EDDIE_PRIVADO/`, siempre privada y
+     separada de la carpeta de trabajo. Después puedes borrarlas del formulario.
+   - **Opciones:** túnel (Cloudflare temporal por defecto) y rama del código.
+4. **Ejecuta la celda (▶)** y autoriza Drive.
+   - La primera vez tarda unos minutos más: descarga Blender y lo guarda en tu carpeta de trabajo.
+5. **Al terminar aparece el panel "EDDIE STUDIO 3D — listo"** con GPU, Blender, carpeta y claves
+   cargadas, y la **configuración para Antigravity** con el botón **📋 Copiar configuración**.
+6. **En Antigravity:**
+   - panel del agente → `⋯` → **MCP Servers → Manage MCP Servers → View raw config**;
+   - pega (reemplaza el bloque `eddie-studio` si ya existía), guarda y pulsa **Refresh**.
+7. **En Antigravity, abre como espacio de trabajo una copia local de este repositorio**, para que lea
+   `AGENTS.md` y `.agents/rules/`. Primera instrucción sugerida:
    > Conéctate al estudio, haz la prueba de la Fase 0 de AGENTS.md y dime los tiempos de render de la GPU.
-4. **Deja la pestaña de Colab abierta** mientras trabaja. La celda 2 queda corriendo a propósito.
 
-Si se cae la sesión de Colab: vuelve a ejecutar la celda 2 y actualiza el bloque en Antigravity, porque
-la dirección es nueva.
-- Lo guardado en Drive (claves, Blender, biblioteca, proyectos) no se pierde.
-- Lo que estaba en `/content/eddie` sí se pierde: renders temporales y trabajos en curso.
+**Deja la pestaña de Colab abierta:** la celda sigue corriendo a propósito.
+
+Si la sesión se cae, vuelve a ejecutar la celda y pega la nueva configuración: el túnel es temporal y cambia.
+- **No se pierde:** claves, Blender, biblioteca y proyectos, porque viven en Drive.
+- **Sí se pierde:** lo temporal en `/content/eddie`.
 
 ## Qué puede hacer Antigravity por el túnel
 
@@ -51,7 +46,7 @@ la dirección es nueva.
 
 ## Seguridad
 - **La clave del estudio protege el túnel.** Sin ella nadie puede usar el servidor.
-  - Se guarda en `EDDIE_STUDIO/privado/clave_estudio.txt`.
+  - Se guarda en `Mi unidad/EDDIE_PRIVADO/clave_estudio.txt`.
   - Si crees que se filtró, borra ese archivo y reinicia: se genera otra.
 - **Tu carpeta de Drive compartida como "Editor público" sigue siendo un riesgo.** Cámbiala a "Restringido".
 - El túnel es tu agente controlando tu propio cómputo. Las reglas de Colab prohíben "servicios web" no
