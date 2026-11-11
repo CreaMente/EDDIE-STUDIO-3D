@@ -25,7 +25,7 @@ from fastmcp.utilities.types import Image
 from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
 
-from estudio import __version__, blender, claves, config, sistema, trabajos
+from estudio import __version__, blender, claves, config, entornos, sistema, trabajos
 
 MAX_ESPERA_S = 85
 MAX_SALIDA = 20_000
@@ -411,6 +411,112 @@ def render_prueba(motor: str = "CYCLES", ancho: int = 1080, alto: int = 1920, mu
                             ["--motor", motor, "--ancho", str(ancho), "--alto", str(alto),
                              "--muestras", str(muestras), "--salida", str(salida)],
                             "", True, f"render_prueba {motor}")
+
+
+# ───────────────────────── proyectos ─────────────────────────
+
+def _slug(texto: str) -> str:
+    import re
+    import unicodedata
+
+    t = unicodedata.normalize("NFD", texto.lower())
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")
+    return re.sub(r"[^a-z0-9]+", "-", t).strip("-")[:50] or "proyecto"
+
+
+def _proyecto(id_o_ruta: str) -> Path:
+    p = Path(id_o_ruta)
+    return p if p.is_absolute() else config.ruta_drive("proyectos", id_o_ruta)
+
+
+@mcp.tool
+def proyecto_crear(titulo: str, guion: str = "", duracion_objetivo_s: float = 0) -> dict:
+    """Crea un proyecto de video en Drive: proyectos/<fecha>-<titulo>/.
+    `guion` es SOLO el texto que dirá el narrador (se guarda en guion.txt). Devuelve el id del proyecto."""
+    pid = time.strftime("%Y%m%d-%H%M") + "-" + _slug(titulo)
+    d = config.ruta_drive("proyectos", pid)
+    d.mkdir(parents=True, exist_ok=True)
+    if guion.strip():
+        (d / "guion.txt").write_text(guion.strip() + "\n", encoding="utf-8")
+    (d / "proyecto.json").write_text(json.dumps({
+        "id": pid, "titulo": titulo, "duracion_objetivo_s": duracion_objetivo_s,
+        "creado": time.strftime("%Y-%m-%d %H:%M:%S")}, indent=2, ensure_ascii=False), encoding="utf-8")
+    return {"id": pid, "carpeta": str(d), "guion_guardado": bool(guion.strip())}
+
+
+@mcp.tool
+def proyecto_listar() -> list[dict]:
+    """Lista los proyectos guardados en Drive (más recientes primero)."""
+    base = config.ruta_drive("proyectos")
+    filas = []
+    if base.exists():
+        for d in sorted((x for x in base.iterdir() if x.is_dir() and not x.name.startswith("_")), reverse=True):
+            meta = d / "proyecto.json"
+            info = json.loads(meta.read_text(encoding="utf-8")) if meta.exists() else {"id": d.name}
+            info["tiene_voz"] = (d / "voz" / "voz.wav").exists()
+            filas.append(info)
+    return filas
+
+
+# ───────────────────────── voz (Fase 2) ─────────────────────────
+
+def _trabajo_ia(entorno: str, modulo: str, args: list[str], nombre: str) -> dict:
+    """Trabajo en segundo plano: asegura el entorno aislado y corre el módulo de IA dentro de él."""
+    asegurar = (f'"{sys.executable}" -c "from estudio import entornos; '
+                f"entornos.asegurar('{entorno}')\"")
+    cmd = asegurar + " && " + shlex.join(entornos.comando(entorno, modulo, *args))
+    return trabajos.iniciar(cmd, nombre, str(config.REPO), entorno={"PYTHONPATH": _entorno()["PYTHONPATH"]})
+
+
+@mcp.tool
+def voz_preparar(whisper: str = "large-v3") -> dict:
+    """Instala el entorno de voz y descarga VoxCPM2 + Whisper (la primera vez tarda varios minutos;
+    después quedan en Drive). Devuelve un id de trabajo."""
+    return _trabajo_ia("voz", "ia.voz", ["preparar", "--whisper", whisper], "voz: preparar")
+
+
+@mcp.tool
+def voz_crear_narrador(nombre: str, descripcion: str, texto_muestra: str, candidatos: int = 3) -> dict:
+    """Crea la voz fija del canal con diseño de voz (VoxCPM2). Genera N candidatas en
+    Drive: voces/<nombre>/candidatos/. La descripción va en inglés o español, p. ej.
+    'Hombre adulto latinoamericano, voz cálida y enérgica de narrador de documentales, ritmo ágil'.
+    El texto de muestra debe ser una o dos frases naturales (~10 s). Devuelve un id de trabajo.
+    Después el PROPIETARIO escucha las candidatas y se elige una con voz_elegir_narrador."""
+    return _trabajo_ia("voz", "ia.voz", ["narrador", "--nombre", _slug(nombre), "--descripcion", descripcion,
+                                         "--texto", texto_muestra, "--candidatos", str(max(1, min(candidatos, 6)))],
+                       f"voz: narrador {nombre}")
+
+
+@mcp.tool
+def voz_elegir_narrador(nombre: str, candidata: int) -> dict:
+    """Fija la candidata elegida como voz de referencia del narrador (todos los videos la usarán)."""
+    import shutil
+
+    carpeta = config.ruta_drive("voces", _slug(nombre))
+    meta_p = carpeta / "narrador.json"
+    origen = carpeta / "candidatos" / f"candidata_{candidata}.wav"
+    if not meta_p.exists() or not origen.exists():
+        return {"error": f"No existe la candidata {candidata} del narrador «{nombre}»"}
+    meta = json.loads(meta_p.read_text(encoding="utf-8"))
+    shutil.copyfile(origen, carpeta / "referencia.wav")
+    (carpeta / "referencia.txt").write_text(meta["texto"], encoding="utf-8")
+    meta["elegida"] = candidata
+    meta_p.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
+    return {"ok": True, "narrador": _slug(nombre), "referencia": str(carpeta / "referencia.wav")}
+
+
+@mcp.tool
+def voz_generar(proyecto: str, narrador: str, tomas: int = 3, max_tomas: int = 6, pausa_s: float = 0.10) -> dict:
+    """Narra guion.txt del proyecto con la voz del narrador (VoxCPM2 en la GPU). Por cada frase genera
+    varias tomas, Whisper verifica que diga exactamente el guion y se elige la mejor. Resultado en
+    proyectos/<id>/voz/: voz.wav (48 kHz), palabras.json (inicio/fin de cada palabra), frases.json y
+    reporte.json. Devuelve un id de trabajo."""
+    d = _proyecto(proyecto)
+    if not (d / "guion.txt").exists():
+        return {"error": f"No existe {d / 'guion.txt'}. Crea el proyecto con su guion primero."}
+    return _trabajo_ia("voz", "ia.voz", ["generar", "--proyecto", str(d), "--narrador", _slug(narrador),
+                                         "--tomas", str(tomas), "--max-tomas", str(max_tomas),
+                                         "--pausa", str(pausa_s)], f"voz: generar {d.name}")
 
 
 # ───────────────────────── arranque ─────────────────────────

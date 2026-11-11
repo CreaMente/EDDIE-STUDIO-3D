@@ -53,7 +53,7 @@ El estudio se expone como servidor MCP `eddie-studio` por un túnel **temporal**
 |---|---|
 | 0. Conexión y entorno (túnel, servidor, Blender 5.2, render de prueba) | **Completa.** Medido en Colab (RTX PRO 6000 Blackwell 96 GB, driver 580): Cycles 1080x1920 a 128 muestras con OptiX = **2.18 s**; EEVEE = 20.8 s en frío (compilación de shaders) |
 | 1. Biblioteca base | Pendiente |
-| 2. Voz y tiempos (VoxCPM2, WhisperX) | Pendiente |
+| 2. Voz y tiempos (VoxCPM2 + Whisper) | **Construida** (probada en CPU). Falta la primera prueba en la GPU de Colab |
 | 3. Director de escena y animación (Kimodo, Audio2Face) | Pendiente |
 | 4. Render por bloques y montaje | Pendiente |
 | 5. Recursos automáticos (APIs + IA 3D) | Pendiente |
@@ -74,6 +74,32 @@ No finjas un video terminado.
 3. `render_prueba(motor="EEVEE")`, igual.
 4. `ver_imagen("/content/eddie/tmp/render_prueba_CYCLES.png")`.
 5. Informa al propietario los tiempos medidos.
+
+## Voz del narrador (Fase 2)
+**Una sola vez (crear la voz fija del canal):**
+1. `voz_preparar()` → trabajo. La primera vez instala el entorno y descarga VoxCPM2 (~5 GB) y Whisper
+   large-v3. Después todo queda en Drive.
+2. `voz_crear_narrador(nombre="narrador", descripcion=…, texto_muestra=…)` → trabajo. Genera 3 candidatas
+   en `voces/narrador/candidatos/`.
+   - **Descripción sugerida:** "Hombre adulto latinoamericano, voz cálida, clara y enérgica de narrador de
+     documentales, ritmo ágil".
+   - **Texto de muestra:** dos frases naturales de unos 10 s.
+3. **El propietario escucha las candidatas en Drive y elige.** Tú no puedes oír: no elijas por él.
+4. `voz_elegir_narrador(nombre="narrador", candidata=N)`.
+
+**En cada video:**
+1. `proyecto_crear(titulo, guion)`. El `guion` es **solo** lo que dice el narrador, sin acotaciones.
+   - Los números pueden ir en cifras: el sistema los convierte a palabras.
+2. `voz_generar(proyecto=<id>, narrador="narrador")` → trabajo. Al terminar revisa el `RESULTADO_JSON`:
+   - `frases_con_error` vacío;
+   - `cer_promedio` < 0.05;
+   - `palabras_por_s` cerca de 2.6–3.2.
+   - Si una frase falla, reescríbela más simple y vuelve a generar.
+3. El resultado queda en `proyectos/<id>/voz/`:
+   - `voz.wav`;
+   - `palabras.json`: inicio y fin de cada palabra, para sincronizar las tomas;
+   - `frases.json`;
+   - `reporte.json`.
 
 ## Formato de los videos (resumen; detalle en `.agents/rules/eddie-studio.md`)
 - **Formato:** vertical 1080x1920, 30 fps.

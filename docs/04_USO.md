@@ -48,6 +48,8 @@ Si la sesión se cae, vuelve a ejecutar la celda y pega la nueva configuración:
 | `blender_ejecutar`, `render_prueba` | Blender sin interfaz (bpy), en la GPU |
 | `leer_documento` | Leer la documentación del sistema |
 | `actualizar_codigo`, `reiniciar_servidor` | Traer cambios de GitHub y recargar el servidor |
+| `proyecto_crear`, `proyecto_listar` | Proyectos de video en tu Drive |
+| `voz_preparar`, `voz_crear_narrador`, `voz_elegir_narrador`, `voz_generar` | Voz fija del canal y narración verificada con tiempos por palabra |
 
 ## Seguridad
 - **La clave del estudio protege el túnel.** Sin ella nadie puede usar el servidor.
