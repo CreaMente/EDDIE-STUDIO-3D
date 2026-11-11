@@ -1,0 +1,119 @@
+{
+ "nombre": "snow",
+ "titulo": "Snow",
+ "origen": "https://studio.blender.org/characters/snow/v4/",
+ "credito": "Snow Rig (CC) Blender Foundation | studio.blender.org",
+ "descarga": "/download-source/files/ba/0f/ba0fe6d810333b1d73c1c359e4dc03cb-6.zip",
+ "blend": "Snow/snow_v4.2.blend",
+ "torso": "TORSO-Spine",
+ "huesos": {
+  "mixamorig:Hips": "TORSO-Spine",
+  "mixamorig:Spine": "FK-Spine",
+  "mixamorig:Spine1": "FK-RibCage",
+  "mixamorig:Spine2": "FK-Chest",
+  "mixamorig:Neck": "FK-Neck",
+  "mixamorig:Head": "FK-Head",
+  "mixamorig:LeftShoulder": "FK-Shoulder.L",
+  "mixamorig:RightShoulder": "FK-Shoulder.R",
+  "mixamorig:LeftArm": "FK-UpperArm.L",
+  "mixamorig:RightArm": "FK-UpperArm.R",
+  "mixamorig:LeftForeArm": "FK-Forearm.L",
+  "mixamorig:RightForeArm": "FK-Forearm.R",
+  "mixamorig:LeftHand": "FK-Wrist.L",
+  "mixamorig:RightHand": "FK-Wrist.R",
+  "mixamorig:LeftUpLeg": "FK-Thigh.L",
+  "mixamorig:RightUpLeg": "FK-Thigh.R",
+  "mixamorig:LeftLeg": "FK-Knee.L",
+  "mixamorig:RightLeg": "FK-Knee.R",
+  "mixamorig:LeftFoot": "FK-Foot.L",
+  "mixamorig:RightFoot": "FK-Foot.R",
+  "mixamorig:LeftHandThumb1": "FK-Finger_Thumb1.L",
+  "mixamorig:RightHandThumb1": "FK-Finger_Thumb1.R",
+  "mixamorig:LeftHandThumb2": "FK-Finger_Thumb2.L",
+  "mixamorig:RightHandThumb2": "FK-Finger_Thumb2.R",
+  "mixamorig:LeftHandThumb3": "FK-Finger_Thumb3.L",
+  "mixamorig:RightHandThumb3": "FK-Finger_Thumb3.R",
+  "mixamorig:LeftHandIndex1": "FK-Finger_Index1.L",
+  "mixamorig:RightHandIndex1": "FK-Finger_Index1.R",
+  "mixamorig:LeftHandIndex2": "FK-Finger_Index2.L",
+  "mixamorig:RightHandIndex2": "FK-Finger_Index2.R",
+  "mixamorig:LeftHandIndex3": "FK-Finger_Index3.L",
+  "mixamorig:RightHandIndex3": "FK-Finger_Index3.R",
+  "mixamorig:LeftHandMiddle1": "FK-Finger_Middle1.L",
+  "mixamorig:RightHandMiddle1": "FK-Finger_Middle1.R",
+  "mixamorig:LeftHandMiddle2": "FK-Finger_Middle2.L",
+  "mixamorig:RightHandMiddle2": "FK-Finger_Middle2.R",
+  "mixamorig:LeftHandMiddle3": "FK-Finger_Middle3.L",
+  "mixamorig:RightHandMiddle3": "FK-Finger_Middle3.R",
+  "mixamorig:LeftHandRing1": "FK-Finger_Ring1.L",
+  "mixamorig:RightHandRing1": "FK-Finger_Ring1.R",
+  "mixamorig:LeftHandRing2": "FK-Finger_Ring2.L",
+  "mixamorig:RightHandRing2": "FK-Finger_Ring2.R",
+  "mixamorig:LeftHandRing3": "FK-Finger_Ring3.L",
+  "mixamorig:RightHandRing3": "FK-Finger_Ring3.R",
+  "mixamorig:LeftHandPinky1": "FK-Finger_Pinky1.L",
+  "mixamorig:RightHandPinky1": "FK-Finger_Pinky1.R",
+  "mixamorig:LeftHandPinky2": "FK-Finger_Pinky2.L",
+  "mixamorig:RightHandPinky2": "FK-Finger_Pinky2.R",
+  "mixamorig:LeftHandPinky3": "FK-Finger_Pinky3.L",
+  "mixamorig:RightHandPinky3": "FK-Finger_Pinky3.R"
+ },
+ "verificar": {
+  "mixamorig:LeftUpLeg": "DEF-Thigh_1.L",
+  "mixamorig:RightUpLeg": "DEF-Thigh_1.R",
+  "mixamorig:LeftLeg": "DEF-Knee_1.L",
+  "mixamorig:RightLeg": "DEF-Knee_1.R",
+  "mixamorig:LeftArm": "DEF-UpperArm_1.L",
+  "mixamorig:RightArm": "DEF-UpperArm_1.R",
+  "mixamorig:LeftForeArm": "DEF-Forearm_1.L",
+  "mixamorig:RightForeArm": "DEF-Forearm_1.R",
+  "mixamorig:Spine1": "DEF-RibCage",
+  "mixamorig:Head": "DEF-Head"
+ },
+ "cara": {
+  "mandibula": {
+   "hueso": "Jaw",
+   "eje": 0,
+   "grados": 17
+  },
+  "comisuras": {
+   "L": "ACT-Lips_Corner.L",
+   "R": "ACT-Lips_Corner.R",
+   "arriba": [
+    0,
+    0.02,
+    0
+   ],
+   "ancho_L": [
+    -0.025,
+    0,
+    0
+   ],
+   "ancho_R": [
+    0.025,
+    0,
+    0
+   ],
+   "factor_redondo": 0.7
+  },
+  "parpados": {
+   "L": "MSTR-Eyelid_Upper.L",
+   "R": "MSTR-Eyelid_Upper.R",
+   "cerrar": [
+    0,
+    -0.03,
+    0
+   ]
+  },
+  "cejas": {
+   "L": "MSTR-Eyebrow.L",
+   "R": "MSTR-Eyebrow.R",
+   "subir": [
+    0,
+    0.03,
+    0
+   ]
+  },
+  "calibrado": "Blender 5.2: mandíbula +X abre; comisuras +Y sonrisa, L−X/R+X ancha; párpado −Y cierra; ceja +Y sube"
+ }
+}

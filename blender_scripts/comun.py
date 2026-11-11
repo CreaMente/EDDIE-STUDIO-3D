@@ -157,3 +157,47 @@ def cuaterniones_continuos(accion) -> int:
 
 def evaluar_cuaternion(curvas, cuadro: float):
     return [fc.evaluate(cuadro) for fc in curvas]
+
+
+def aplicar_look(escena, fuerza: float = 1.0) -> dict:
+    """Acabado de cámara en el compositor de Blender (no es IA: es parte del render de Blender).
+
+    Brillo suave en las luces fuertes (bloom), un toque de aberración cromática en los bordes y viñeta,
+    como en los videos de referencia. Requiere Blender 5.x (compositor por grupos de nodos)."""
+    if fuerza <= 0:
+        return {"look": False}
+    if not hasattr(escena, "compositing_node_group"):
+        return {"look": False, "look_aviso": "compositor de Blender 4.x: look no aplicado"}
+    g = bpy.data.node_groups.new("Look_EDDIE", "CompositorNodeTree")
+    g.interface.new_socket("Image", in_out="OUTPUT", socket_type="NodeSocketColor")
+    n = g.nodes
+    capa = n.new("CompositorNodeRLayers")
+    brillo = n.new("CompositorNodeGlare")
+    brillo.inputs["Type"].default_value = "Bloom"
+    brillo.inputs["Threshold"].default_value = 0.9
+    brillo.inputs["Strength"].default_value = 0.18 * fuerza
+    brillo.inputs["Size"].default_value = 0.6
+    lente = n.new("CompositorNodeLensdist")
+    lente.inputs["Dispersion"].default_value = 0.008 * fuerza
+    lente.inputs["Fit"].default_value = True
+    elipse = n.new("CompositorNodeEllipseMask")
+    elipse.inputs["Size"].default_value = (0.92, 0.98)
+    desenfoque = n.new("CompositorNodeBlur")
+    desenfoque.inputs["Size"].default_value = (220.0, 220.0)
+    rango = n.new("ShaderNodeMapRange")
+    rango.inputs["To Min"].default_value = 1.0 - 0.28 * fuerza
+    mezcla = n.new("ShaderNodeMix")
+    mezcla.data_type = "RGBA"
+    mezcla.blend_type = "MULTIPLY"
+    mezcla.inputs["Factor"].default_value = 1.0
+    salida = n.new("NodeGroupOutput")
+    enl = g.links.new
+    enl(capa.outputs["Image"], brillo.inputs["Image"])
+    enl(brillo.outputs["Image"], lente.inputs["Image"])
+    enl(elipse.outputs["Mask"], desenfoque.inputs["Image"])
+    enl(desenfoque.outputs["Image"], rango.inputs["Value"])
+    enl(lente.outputs["Image"], mezcla.inputs["A"])
+    enl(rango.outputs["Result"], mezcla.inputs["B"])
+    enl(mezcla.outputs["Result"], salida.inputs[0])
+    escena.compositing_node_group = g
+    return {"look": True, "look_fuerza": fuerza}

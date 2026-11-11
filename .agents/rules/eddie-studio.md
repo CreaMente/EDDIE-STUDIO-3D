@@ -43,9 +43,13 @@
   - Colores saturados pero no chillones.
   - Contraste cinematográfico (AgX).
   - Profundidad de campo en planos cercanos.
-- **Personajes.** Expresión facial acorde a la frase (dolor, sorpresa, alivio). Labios sincronizados con la voz.
-- **Texto en pantalla:** mínimo; solo una cifra o etapa clave ("DÍA 3"), arriba, sin tapar caras.
-  Sin subtítulos salvo que se pidan.
+- **Personajes.** Protagonistas del elenco (cara animable). Expresión facial acorde a la frase (dolor,
+  sorpresa, alivio). Labios sincronizados con la voz cuando el protagonista narra en primer plano.
+- **Planos estilo historia:** gran angular pegado a la cara (`primerisimo`), contrapicados, cámara en
+  mano; cambio de plano cada 1.5–3 s.
+- **Subtítulos:** siempre, palabra por palabra (grupos de 1–3 palabras) en el centro, como en los videos
+  de historias (decisión del propietario). Los genera `video_montar` desde la voz.
+- **Texto en pantalla adicional:** mínimo; solo una cifra o etapa clave ("DÍA 3"), arriba, sin tapar caras.
 
 ## 4. Calidad (antes de entregar)
 - **Hoja de contacto** de cada toma revisada visualmente. Revisa:

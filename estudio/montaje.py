@@ -34,6 +34,7 @@ from . import blender, config
 from .tomas import correr, log, slug
 
 FPS = 30
+FUENTE_SUBTITULOS = config.REPO / "recursos" / "fuentes" / "Montserrat-ExtraBold.ttf"
 # El AAC sube el pico real ~0.6 dB al codificar (medido en Colab: -1.50 → -0.93 dBTP), así que la mezcla
 # se deja en -2.0 dBTP para que el MP4 final quede por debajo de -1.
 PICO_OBJETIVO = -2.0
@@ -70,6 +71,46 @@ def tiempo_de(item: dict, frases: list, palabras: list, que: str) -> float | Non
     if "inicio_s" in item:
         return float(item["inicio_s"])
     return None
+
+
+PALABRAS_DE_UNION = {"a", "al", "con", "de", "del", "el", "en", "la", "las", "le", "les", "lo", "los", "me", "mi",
+                     "mis", "no", "o", "para", "por", "que", "se", "si", "su", "sus", "te", "tu", "tus", "un",
+                     "una", "y", "ya"}
+
+
+def grupos_subtitulos(palabras: list, max_palabras: int = 3, max_letras: int = 16) -> list[dict]:
+    """Palabras de la voz → grupos cortos (1–3 palabras) como en los videos de historias.
+
+    Un grupo se corta en la puntuación, si pasa de max_letras o si hay una pausa. Cada grupo se ve desde
+    que empieza su primera palabra hasta que empieza el siguiente (o poco después de su última palabra si
+    sigue una pausa larga)."""
+    grupos, actual = [], []
+    for i, w in enumerate(palabras):
+        actual.append(w)
+        texto = " ".join(x["palabra"] for x in actual)
+        sig = palabras[i + 1] if i + 1 < len(palabras) else None
+        pausa = sig is not None and sig["inicio"] - w["fin"] > 0.35
+        puntuacion = w["palabra"][-1:] in ",.;:?!…"
+        if len(actual) >= max_palabras or len(texto) >= max_letras or puntuacion or pausa or sig is None:
+            # No dejar colgando una palabra pequeña («se», «la», «de»…): pasa al grupo siguiente.
+            ultima = actual[-1]["palabra"].lower().strip("¿¡")
+            if (not puntuacion and not pausa and sig is not None and len(actual) > 1
+                    and ultima in PALABRAS_DE_UNION):
+                grupos.append(actual[:-1])
+                actual = [actual[-1]]
+            else:
+                grupos.append(actual)
+                actual = []
+    salida = []
+    for k, g in enumerate(grupos):
+        ini = float(g[0]["inicio"])
+        fin_hablado = float(g[-1]["fin"]) + 0.25
+        fin = float(grupos[k + 1][0]["inicio"]) if k + 1 < len(grupos) else fin_hablado
+        fin = min(fin, max(fin_hablado, ini + 0.3))
+        texto = " ".join(x["palabra"] for x in g).strip()
+        texto = texto.rstrip(",.;:…") if not texto.endswith(("?", "!")) else texto
+        salida.append({"texto": texto, "inicio_s": ini, "fin_s": fin})
+    return salida
 
 
 def mezclar_audio(voz: Path, musica: str, musica_db: float, duracion: float, salida: Path) -> dict:
@@ -112,6 +153,9 @@ def main() -> None:
     p.add_argument("--adelanto", type=float, default=0.07)
     p.add_argument("--cola", type=float, default=0.35)
     p.add_argument("--fuente", default="")
+    p.add_argument("--subtitulos", type=int, default=1, help="1 = subtítulos palabra por palabra")
+    p.add_argument("--subtitulos_altura", type=float, default=0.40, help="0 abajo – 1 arriba")
+    p.add_argument("--subtitulos_tamano", type=int, default=86)
     a = p.parse_args()
     t0 = time.time()
     if not config.drive_disponible():
@@ -196,8 +240,15 @@ def main() -> None:
         textos.append({"texto": t["texto"], "inicio": i0, "duracion": max(6, min(i1, total + 1) - i0),
                        **{k: t[k] for k in ("tamano", "altura") if k in t}})
 
+    subtitulos = []
+    if a.subtitulos:
+        for g in grupos_subtitulos(palabras):
+            i0, i1 = int(round(g["inicio_s"] * FPS)) + 1, int(round(g["fin_s"] * FPS)) + 1
+            subtitulos.append({"texto": g["texto"], "inicio": i0, "duracion": max(4, min(i1, total + 1) - i0)})
     plan_blender = {"cuadros_total": total, "escala": a.escala, "clips": clips, "fundidos": fundidos,
-                    "textos": textos, "fuente": a.fuente}
+                    "textos": textos, "fuente": a.fuente or str(FUENTE_SUBTITULOS),
+                    "subtitulos": subtitulos, "fuente_subtitulos": str(FUENTE_SUBTITULOS),
+                    "subtitulos_altura": a.subtitulos_altura, "subtitulos_tamano": a.subtitulos_tamano}
     ruta_plan = tmp / "plan.json"
     ruta_plan.write_text(json.dumps(plan_blender, indent=1, ensure_ascii=False), encoding="utf-8")
     carpeta_png = tmp / "cuadros"
@@ -255,6 +306,7 @@ def main() -> None:
                "resolucion": f"{1080 * a.escala // 100}x{1920 * a.escala // 100}", "fps": FPS,
                "lufs": lufs, "pico_dbtp": pico, "lufs_antes": float(medida_previa["input_i"]),
                "tomas": detalle, "fundidos": len(fundidos), "textos": len(textos), "musica": bool(musica),
+               "subtitulos": len(subtitulos),
                "avisos": avisos, "cuadros_png": str(carpeta_png),
                "segundos_render_montaje": r_vse.get("segundos_render"), "segundos_total": round(time.time() - t0, 1)}
     (proyecto / "video" / f"{slug(a.nombre)}.json").write_text(json.dumps(reporte, indent=1, ensure_ascii=False),

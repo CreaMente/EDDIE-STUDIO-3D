@@ -112,8 +112,18 @@ No finjas un video terminado.
 - **Biblioteca:**
   - `biblioteca_listar()` muestra personajes (con foto `vista.png`: revísala con `ver_imagen`) y animaciones (clave, duración, si es en el lugar).
   - Los FBX nuevos que el propietario sube a `biblioteca/_entrada/mixamo/` se importan con `mixamo_importar()`.
-- **Personajes principales: Mixamo** (piel profesional, deformación correcta).
-  - Los humanos MPFB quedan solo como respaldo: su malla deforma mal en la cadera.
+- **Protagonistas: el elenco** (`biblioteca_listar()["elenco"]`): personajes de Blender Studio con rig de
+  película y **cara animable** (labios, cejas, párpados, comisuras). Hoy: `rain` (mujer joven) y `snow`
+  (hombre joven). Licencia CC-BY: el crédito se escribe solo en `CREDITOS.txt`.
+  - La primera vez descárgalos con `elenco_preparar()` (o lo hace `toma_crear` solo).
+  - El movimiento se arma sobre el esqueleto Mixamo `remy` (animaciones, Kimodo, fundidos) y se pasa al
+    personaje del elenco. Las animaciones y Kimodo se usan igual que antes.
+  - `remy` (Mixamo, sin cara animable) queda para extras y planos lejanos. MPFB solo como respaldo.
+- **Cara (solo elenco):** `expresion` (neutral, alegria, dolor, sorpresa, miedo, tristeza, enojo, asco,
+  pensativo) con `intensidad` 0–1.5, y parpadeo automático.
+  - `habla=true, frase=n`: los labios dicen la frase n de la narración. Úsalo cuando el protagonista
+    cuenta la historia en primera persona y se le ve la cara (primer plano). La toma debe empezar donde
+    empieza esa frase en el montaje (plan `{"toma": …, "frase": n}`).
 - **Armar una toma:** `toma_crear(proyecto, personaje, secuencia, calidad="borrador")` → trabajo → revisa el MP4 con `hoja_de_contacto` → si está bien, repite con `calidad="final"`.
 - **`secuencia`** es la lista de tramos en orden:
   - `{"anim": "caminar_herido", "segundos": 4, "avance": true}`: animación Mixamo.
@@ -134,7 +144,16 @@ No finjas un video terminado.
   - Opcionales por tramo: `"giro"` en grados (+ = izquierda) y `"mezcla"` (cuadros de fundido con el
     tramo anterior; por defecto 10, usa 15–20 si las poses de unión son distintas).
 - **Prioridad:** usa primero las animaciones de Mixamo, que tienen más calidad. Kimodo solo para lo que no exista.
-- **Cámara:** sigue a la cadera con acercamiento lento. Ajusta con `camara={"angulo", "distancia", "altura", "lente", "acercamiento"}`.
+- **Cámara:** `camara={"plano": …}` con planos al estilo de los videos de historias:
+  - `primerisimo`: gran angular (16 mm) pegado a la cara, levemente inclinado. El plano estrella.
+  - `primer_plano`, `medio`, `general`, `contrapicado` (desde abajo, imponente), `picado` (desde arriba,
+    vulnerable), `detalle_pies`, `detalle_manos`.
+  - Todos llevan temblor de cámara en mano y un acercamiento suave. Ajustes: `angulo` (0 = de frente,
+    ±30 de tres cuartos), `lente`, `distancia`, `altura_rel`, `inclinacion`, `temblor`, `objetivo`.
+  - **Varía el plano en cada toma** y cambia de toma cada 1.5–3 s (varias tomas por frase si hace falta,
+    cortando en palabras con `{"toma": …, "palabra": i}`).
+- **Look:** cada toma lleva un acabado de cámara (brillo suave, viñeta, leve aberración) hecho en el
+  compositor de Blender.
 - **Escenario:** `hdri` y `piso` son ids de Poly Haven. Se descargan solos y quedan en Drive.
 - **Créditos:** se escriben solos en `proyectos/<id>/CREDITOS.txt`.
 
@@ -149,6 +168,8 @@ No finjas un video terminado.
      (`cuadros_png` del resultado; se borran al cerrar Colab) y el MP4 en Drive.
 4. **Montaje:** `video_montar(proyecto, plan=[{"toma": "t01", "frase": 0}, {"toma": "t02", "frase": 2}, …],
    textos=[{"texto": "DÍA 3", "frase": 4}])`.
+   - **Subtítulos palabra por palabra** (como His Story) salen solos de la voz: grupos de 1–3 palabras en el
+     centro, Montserrat ExtraBold blanca con contorno y sombra. `subtitulos=false` para quitarlos.
    - Primero con `calidad="borrador"` para revisar cortes y textos (`hoja_de_contacto` del MP4); luego `final`.
    - Revisa en el `RESULTADO_JSON`: `avisos` vacío (si una toma quedó corta, vuelve a renderizarla más
      larga), `lufs` ≈ -14 y `pico_dbtp` ≤ -1, `duracion_s`.

@@ -33,7 +33,7 @@ import time
 import unicodedata
 from pathlib import Path
 
-from . import blender, config, entornos, polyhaven
+from . import blender, config, elenco, entornos, polyhaven
 
 
 def log(msg: str) -> None:
@@ -121,10 +121,13 @@ def cmd_toma(a) -> None:
     proyecto = Path(a.proyecto) if os.path.isabs(a.proyecto) else config.ruta_drive("proyectos", a.proyecto)
     carpeta = proyecto / "tomas" / slug(a.nombre)
     carpeta.mkdir(parents=True, exist_ok=True)
-    personaje = ruta_personaje(a.personaje)
+    # Personaje del elenco (Blender Studio, con cara): el movimiento se arma sobre el esqueleto Mixamo
+    # de la biblioteca y después se transfiere a su rig.
+    ficha = elenco.ficha(a.personaje)
+    personaje = ruta_personaje(a.esqueleto if ficha else a.personaje)
     if not personaje.exists():
-        raise SystemExit(f"No existe el personaje «{a.personaje}» en la biblioteca ({personaje}). "
-                         "Usa mixamo_importar o biblioteca_listar.")
+        raise SystemExit(f"No existe el personaje «{a.esqueleto if ficha else a.personaje}» en la biblioteca "
+                         f"({personaje}). Usa mixamo_importar o biblioteca_listar.")
     secuencia = json.loads(a.secuencia)
     bibliotecas = [str(biblioteca_mixamo())]
     pasos = {}
@@ -163,19 +166,42 @@ def cmd_toma(a) -> None:
                                                  "--mezcla", str(a.mezcla)]),
                                 "encadenar animaciones")
 
+    # 2b. Elenco: transferir al rig del personaje y animar su cara (labios, expresión, parpadeo).
+    if ficha:
+        blend_elenco = elenco.preparar(a.personaje, log)
+        ruta_ficha = elenco.FICHAS / f"{ficha['nombre']}.json"
+        transferido = carpeta / f"animado_{ficha['nombre']}.blend"
+        pasos["transferencia"] = correr(blender.comando(blender.script("transferir_personaje.py"),
+                                                        ["--fuente", str(animado), "--personaje", str(blend_elenco),
+                                                         "--ficha", str(ruta_ficha), "--salida", str(transferido)]),
+                                        f"pasar el movimiento a {ficha['titulo']}")
+        args_cara = ["--animado", str(transferido), "--ficha", str(ruta_ficha), "--salida", str(transferido),
+                     "--expresion", a.expresion, "--intensidad", str(a.intensidad)]
+        if a.habla:
+            palabras = proyecto / "voz" / "palabras.json"
+            if not palabras.exists():
+                raise SystemExit("habla=true necesita la voz del proyecto (voz_generar) para sincronizar los labios.")
+            desde = a.voz_desde
+            if a.frase >= 0:
+                frases = json.loads((proyecto / "voz" / "frases.json").read_text(encoding="utf-8"))
+                desde = max(0.0, float(frases[a.frase]["inicio"]) - 0.07)  # igual que el corte del montaje
+            args_cara += ["--palabras", str(palabras), "--desde_s", str(desde), "--habla", "1"]
+        pasos["cara"] = correr(blender.comando(blender.script("cara_personaje.py"), args_cara),
+                               f"cara de {ficha['titulo']} ({a.expresion}{', habla' if a.habla else ''})")
+        animado = transferido
+
     # 3. Escenario (Poly Haven) y render.
     res_hdri = "4k" if a.escala >= 100 else "2k"
     hdri = polyhaven.hdri(a.hdri, res_hdri)
     piso = polyhaven.textura(a.piso, "2k" if a.escala >= 100 else "1k")
-    camara = json.loads(a.camara or "{}")
     cuadros = config.ruta_local("cuadros", proyecto.name, slug(a.nombre))
     args = ["--animado", str(animado), "--salida", str(carpeta / "toma.mp4"), "--hdri", str(hdri),
             "--piso", json.dumps(piso), "--motor", a.motor, "--muestras", str(a.muestras), "--escala", str(a.escala),
             "--carpeta_cuadros", str(cuadros), "--bloques", str(a.bloques)]
-    for clave, arg in (("angulo", "--angulo"), ("distancia", "--distancia"), ("altura", "--altura_camara"),
-                       ("lente", "--lente"), ("acercamiento", "--acercamiento"), ("hdri_rotacion", "--hdri_rotacion")):
-        if clave in camara:
-            args += [arg, str(camara[clave])]
+    camara = json.loads(a.camara or "{}")
+    if "hdri_rotacion" in camara:
+        args += ["--hdri_rotacion", str(camara.pop("hdri_rotacion"))]
+    args += ["--camara", json.dumps(camara or {"plano": "general"})]
     if a.audio:
         args += ["--audio", a.audio]
     pasos["render"] = correr(blender.comando(blender.script("escena_toma.py"), args), "render de la toma")
@@ -183,7 +209,11 @@ def cmd_toma(a) -> None:
     creditos = proyecto / "CREDITOS.txt"
     lineas = set(creditos.read_text(encoding="utf-8").splitlines()) if creditos.exists() else set()
     lineas |= {f"Iluminación HDRI «{a.hdri}» y textura «{a.piso}»: Poly Haven (polyhaven.com), CC0.",
-               "Personajes y animaciones: Mixamo (Adobe), uso libre de regalías."}
+               "Animaciones: Mixamo (Adobe), uso libre de regalías."}
+    if ficha:
+        lineas.add(f"Personaje: {ficha['credito']} — licencia CC-BY 4.0 (creativecommons.org/licenses/by/4.0).")
+    else:
+        lineas.add("Personajes: Mixamo (Adobe), uso libre de regalías.")
     if any(k.startswith("kimodo_") for k in pasos):
         lineas.add("Animación generada con NVIDIA Kimodo (NVIDIA Open Model License); "
                    "codificador de texto Built with Meta Llama 3.")
@@ -218,6 +248,12 @@ def main() -> None:
     pt.add_argument("--camara", default="")
     pt.add_argument("--mezcla", type=int, default=10)
     pt.add_argument("--bloques", type=int, default=3)
+    pt.add_argument("--esqueleto", default="remy", help="personaje Mixamo base para el elenco")
+    pt.add_argument("--expresion", default="neutral")
+    pt.add_argument("--intensidad", type=float, default=1.0)
+    pt.add_argument("--habla", type=int, default=0)
+    pt.add_argument("--frase", type=int, default=-1, help="frase de la voz que dice en esta toma")
+    pt.add_argument("--voz_desde", type=float, default=0.0)
     a = p.parse_args()
     if not config.drive_disponible():
         raise SystemExit(config.AVISO_DRIVE)

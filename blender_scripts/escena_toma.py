@@ -26,7 +26,7 @@ import sys
 import time
 
 import bpy
-from mathutils import Vector
+from mathutils import Euler, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import comun  # noqa: E402
@@ -78,13 +78,50 @@ def mundo_hdri(ruta: str, intensidad: float, rotacion_grados: float) -> None:
     bpy.context.scene.world = mundo
 
 
-def trayectoria_cadera(rig, f_ini: int, f_fin: int) -> dict[int, Vector]:
+# Planos predefinidos (estilo de los videos de historias: gran angular cerca de la cara, contrapicados,
+# cámara en mano). distancia en m al objetivo; altura_rel = altura de la cámara respecto al objetivo.
+PLANOS = {
+    "general":      {"objetivo": "cadera", "lente": 24, "distancia": 3.6, "altura_rel": 0.35, "acercamiento": 0.15,
+                     "temblor": 0.4, "suavizado": 12},
+    "medio":        {"objetivo": "pecho", "lente": 28, "distancia": 1.7, "altura_rel": 0.10, "acercamiento": 0.15,
+                     "temblor": 0.5, "suavizado": 8},
+    "primer_plano": {"objetivo": "cabeza", "lente": 24, "distancia": 0.85, "altura_rel": 0.0, "acercamiento": 0.12,
+                     "temblor": 0.6, "suavizado": 5},
+    "primerisimo":  {"objetivo": "cabeza", "lente": 16, "distancia": 0.45, "altura_rel": -0.04, "acercamiento": 0.10,
+                     "temblor": 0.8, "inclinacion": 6, "suavizado": 4},
+    "contrapicado": {"objetivo": "cabeza", "lente": 18, "distancia": 1.0, "altura_rel": -0.75, "acercamiento": 0.15,
+                     "temblor": 0.6, "inclinacion": -5, "suavizado": 6},
+    "picado":       {"objetivo": "cabeza", "lente": 24, "distancia": 1.5, "altura_rel": 0.95, "acercamiento": 0.15,
+                     "temblor": 0.5, "suavizado": 6},
+    "detalle_pies": {"objetivo": "pies", "lente": 35, "distancia": 0.9, "altura_rel": 0.15, "acercamiento": 0.2,
+                     "temblor": 0.5, "suavizado": 6},
+    "detalle_manos": {"objetivo": "manos", "lente": 35, "distancia": 0.7, "altura_rel": 0.10, "acercamiento": 0.2,
+                      "temblor": 0.6, "suavizado": 5},
+}
+
+HUESOS_OBJETIVO = {
+    "cadera": (["mixamorig:Hips"], ["DEF-Pelvis"], ["DEF-Hips"], ["Hips"]),
+    "pecho": (["mixamorig:Spine2"], ["DEF-Chest"], ["DEF-Spine3"], ["DEF-RibCage"]),
+    "cabeza": (["mixamorig:Head"], ["DEF-Head"], ["Head"]),
+    "pies": (["mixamorig:LeftFoot", "mixamorig:RightFoot"], ["DEF-Foot.L", "DEF-Foot.R"]),
+    "manos": (["mixamorig:LeftHand", "mixamorig:RightHand"], ["DEF-Hand.L", "DEF-Hand.R"],
+              ["DEF-Wrist.L", "DEF-Wrist.R"]),
+}
+
+
+def huesos_objetivo(rig, objetivo: str) -> list:
+    for grupo in HUESOS_OBJETIVO[objetivo]:
+        if all(n in rig.pose.bones for n in grupo):
+            return [rig.pose.bones[n] for n in grupo]
+    raise SystemExit(f"No encuentro huesos para el objetivo «{objetivo}» en {rig.name}")
+
+
+def trayectoria(rig, huesos: list, f_ini: int, f_fin: int) -> dict[int, Vector]:
     esc = bpy.context.scene
-    cad = next(pb for pb in rig.pose.bones if pb.name.endswith("Hips"))
     pos = {}
     for f in range(f_ini, f_fin + 1):
         esc.frame_set(f)
-        pos[f] = (rig.matrix_world @ cad.head).copy()
+        pos[f] = sum(((rig.matrix_world @ pb.head) for pb in huesos), Vector()) / len(huesos)
     return pos
 
 
@@ -97,33 +134,53 @@ def suavizar(pos: dict[int, Vector], ventana: int) -> dict[int, Vector]:
     return salida
 
 
-def camara_seguimiento(rig, f_ini: int, f_fin: int, lente: float, distancia: float, altura: float,
-                       angulo: float, acercamiento: float) -> bpy.types.Object:
+def camara_seguimiento(rig, f_ini: int, f_fin: int, conf: dict) -> bpy.types.Object:
+    """Cámara que sigue al objetivo con un acercamiento suave, inclinación y temblor de mano.
+
+    conf: plano (preset) + cualquiera de objetivo, lente, distancia, altura_rel o altura (absoluta),
+    angulo (grados alrededor del personaje; 0 = de frente), acercamiento, inclinacion, temblor (grados),
+    suavizado (cuadros), apertura (f-stop)."""
+    from mathutils import noise
+
+    c = dict(PLANOS.get(conf.get("plano", "general"), PLANOS["general"]))
+    c.update({k: v for k, v in conf.items() if v is not None})
     esc = bpy.context.scene
-    pos = suavizar(trayectoria_cadera(rig, f_ini, f_fin), ventana=12)
-    objetivo = bpy.data.objects.new("ObjetivoCamara", None)
-    esc.collection.objects.link(objetivo)
+    pos = suavizar(trayectoria(rig, huesos_objetivo(rig, c["objetivo"]), f_ini, f_fin), ventana=int(c["suavizado"]))
+    foco = bpy.data.objects.new("ObjetivoCamara", None)
+    esc.collection.objects.link(foco)
     cam_d = bpy.data.cameras.new("Camara")
-    cam_d.lens = lente
+    cam_d.lens = float(c["lente"])
+    cam_d.clip_start = 0.02
     cam_d.dof.use_dof = True
-    cam_d.dof.focus_object = objetivo
-    cam_d.dof.aperture_fstop = 2.8
+    cam_d.dof.focus_object = foco
+    cam_d.dof.aperture_fstop = float(c.get("apertura", 2.8 if c["distancia"] > 1.2 else 2.0))
     cam = bpy.data.objects.new("Camara", cam_d)
+    cam.rotation_mode = "QUATERNION"
     esc.collection.objects.link(cam)
-    seguir = cam.constraints.new("TRACK_TO")
-    seguir.target = objetivo
-    seguir.track_axis, seguir.up_axis = "TRACK_NEGATIVE_Z", "UP_Y"
     esc.camera = cam
     total = max(1, f_fin - f_ini)
+    ang = math.radians(float(c.get("angulo", 25)))
+    semilla = float(c.get("semilla", 7.3))
     for f in range(f_ini, f_fin + 1):
         t = (f - f_ini) / total
         suave = t * t * (3 - 2 * t)  # el acercamiento arranca y termina suave
-        d = distancia * (1 - acercamiento * suave)
-        c = pos[f]
-        objetivo.location = (c.x, c.y, c.z + 0.35)  # a la altura del pecho
-        objetivo.keyframe_insert("location", frame=f)
-        cam.location = (c.x + d * math.sin(math.radians(angulo)), c.y - d * math.cos(math.radians(angulo)), altura)
+        d = float(c["distancia"]) * (1 - float(c["acercamiento"]) * suave)
+        o = pos[f]
+        z = float(conf["altura"]) if "altura" in conf else o.z + float(c["altura_rel"])
+        foco.location = o
+        foco.keyframe_insert("location", frame=f)
+        cam.location = (o.x + d * math.sin(ang), o.y - d * math.cos(ang), z)
         cam.keyframe_insert("location", frame=f)
+        mira = (o - Vector(cam.location)).to_track_quat("-Z", "Y")
+        # Inclinación (plano holandés) + temblor de cámara en mano (ruido suave, no aleatorio por cuadro).
+        tiempo = f / 30.0
+        temblor = math.radians(float(c.get("temblor", 0)))
+        rx = temblor * noise.noise(Vector((tiempo * 0.9, semilla, 0.0)))
+        ry = temblor * noise.noise(Vector((semilla, tiempo * 0.9, 1.7)))
+        rz = math.radians(float(c.get("inclinacion", 0))) + 0.5 * temblor * noise.noise(Vector((2.1, semilla, tiempo)))
+        local = Euler((rx, ry, rz), "XYZ").to_quaternion()
+        cam.rotation_quaternion = mira @ local
+        cam.keyframe_insert("rotation_quaternion", frame=f)
     return cam
 
 
@@ -138,20 +195,18 @@ def main() -> None:
     p.add_argument("--escala", type=int, default=100, help="porcentaje de 1080x1920")
     p.add_argument("--audio", default="")
     p.add_argument("--cuadros", default="", help="rango ini-fin; vacío = todo el movimiento")
-    p.add_argument("--lente", type=float, default=35)
-    p.add_argument("--distancia", type=float, default=4.2)
-    p.add_argument("--altura_camara", type=float, default=1.45)
-    p.add_argument("--angulo", type=float, default=25, help="grados alrededor del personaje")
-    p.add_argument("--acercamiento", type=float, default=0.25, help="fracción que se acerca durante la toma")
+    p.add_argument("--camara", default='{"plano": "general"}',
+                   help='JSON: {"plano": "primerisimo", "angulo": 20, "lente": 16, ...} (ver PLANOS)')
     p.add_argument("--hdri_rotacion", type=float, default=0)
     p.add_argument("--carpeta_cuadros", default="", help="dónde escribir los PNG (mejor disco local)")
     p.add_argument("--bloques", type=int, default=1, help="procesos de render en paralelo (solo Cycles)")
+    p.add_argument("--look", type=float, default=1.0, help="fuerza del acabado de cámara (0 = sin look)")
     a = p.parse_args(comun.argumentos())
     t0 = time.time()
 
     bpy.ops.wm.open_mainfile(filepath=a.animado)
     esc = bpy.context.scene
-    rig = next(o for o in esc.objects if o.type == "ARMATURE")
+    rig = max((o for o in esc.objects if o.type == "ARMATURE"), key=lambda o: len(o.data.bones))
     for o in [o for o in esc.objects if o.type in ("CAMERA", "LIGHT")]:
         bpy.data.objects.remove(o, do_unlink=True)
     if a.cuadros:
@@ -172,7 +227,7 @@ def main() -> None:
     apunta.target = rig
     apunta.track_axis, apunta.up_axis = "TRACK_NEGATIVE_Z", "UP_Y"
 
-    camara_seguimiento(rig, f_ini, f_fin, a.lente, a.distancia, a.altura_camara, a.angulo, a.acercamiento)
+    camara_seguimiento(rig, f_ini, f_fin, json.loads(a.camara or "{}"))
 
     r = esc.render
     r.resolution_x, r.resolution_y, r.resolution_percentage = 1080, 1920, a.escala
@@ -194,6 +249,7 @@ def main() -> None:
     r.use_motion_blur = True
     r.use_persistent_data = True  # no reconstruye la escena en la GPU en cada cuadro
     comun.color_cinematico(esc)
+    info.update(comun.aplicar_look(esc, a.look))
 
     carpeta = a.carpeta_cuadros or (os.path.splitext(a.salida)[0] + "_cuadros")
     if os.path.isdir(carpeta):

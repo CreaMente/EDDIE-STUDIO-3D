@@ -1,0 +1,119 @@
+{
+ "nombre": "rain",
+ "titulo": "Rain",
+ "origen": "https://studio.blender.org/characters/rain/v3/",
+ "credito": "Rain Rig (CC-BY) Blender Foundation | studio.blender.org",
+ "descarga": "/download-source/files/ee/a7/eea73e55dba1cea31c09848df6a794b2-4.zip",
+ "blend": "Rain v3.3/rain_v3.2.blend",
+ "torso": "MSTR-Pelvis_Parent",
+ "huesos": {
+  "mixamorig:Hips": "MSTR-Pelvis_Parent",
+  "mixamorig:Spine": "FK-Spine",
+  "mixamorig:Spine1": "FK-RibCage",
+  "mixamorig:Spine2": "FK-Chest",
+  "mixamorig:Neck": "FK-Neck",
+  "mixamorig:Head": "FK-Head",
+  "mixamorig:LeftShoulder": "MSTR-Clavicle.L",
+  "mixamorig:RightShoulder": "MSTR-Clavicle.R",
+  "mixamorig:LeftArm": "FK-Upperarm.L",
+  "mixamorig:RightArm": "FK-Upperarm.R",
+  "mixamorig:LeftForeArm": "FK-Forearm.L",
+  "mixamorig:RightForeArm": "FK-Forearm.R",
+  "mixamorig:LeftHand": "FK-Hand.L",
+  "mixamorig:RightHand": "FK-Hand.R",
+  "mixamorig:LeftUpLeg": "FK-Thigh.L",
+  "mixamorig:RightUpLeg": "FK-Thigh.R",
+  "mixamorig:LeftLeg": "FK-Shin.L",
+  "mixamorig:RightLeg": "FK-Shin.R",
+  "mixamorig:LeftFoot": "FK-Foot.L",
+  "mixamorig:RightFoot": "FK-Foot.R",
+  "mixamorig:LeftHandThumb1": "FK-Thumb1.L",
+  "mixamorig:RightHandThumb1": "FK-Thumb1.R",
+  "mixamorig:LeftHandThumb2": "FK-Thumb2.L",
+  "mixamorig:RightHandThumb2": "FK-Thumb2.R",
+  "mixamorig:LeftHandThumb3": "FK-Thumb3.L",
+  "mixamorig:RightHandThumb3": "FK-Thumb3.R",
+  "mixamorig:LeftHandIndex1": "FK-Index1.L",
+  "mixamorig:RightHandIndex1": "FK-Index1.R",
+  "mixamorig:LeftHandIndex2": "FK-Index2.L",
+  "mixamorig:RightHandIndex2": "FK-Index2.R",
+  "mixamorig:LeftHandIndex3": "FK-Index3.L",
+  "mixamorig:RightHandIndex3": "FK-Index3.R",
+  "mixamorig:LeftHandMiddle1": "FK-Middle1.L",
+  "mixamorig:RightHandMiddle1": "FK-Middle1.R",
+  "mixamorig:LeftHandMiddle2": "FK-Middle2.L",
+  "mixamorig:RightHandMiddle2": "FK-Middle2.R",
+  "mixamorig:LeftHandMiddle3": "FK-Middle3.L",
+  "mixamorig:RightHandMiddle3": "FK-Middle3.R",
+  "mixamorig:LeftHandRing1": "FK-Ring1.L",
+  "mixamorig:RightHandRing1": "FK-Ring1.R",
+  "mixamorig:LeftHandRing2": "FK-Ring2.L",
+  "mixamorig:RightHandRing2": "FK-Ring2.R",
+  "mixamorig:LeftHandRing3": "FK-Ring3.L",
+  "mixamorig:RightHandRing3": "FK-Ring3.R",
+  "mixamorig:LeftHandPinky1": "FK-Pinky1.L",
+  "mixamorig:RightHandPinky1": "FK-Pinky1.R",
+  "mixamorig:LeftHandPinky2": "FK-Pinky2.L",
+  "mixamorig:RightHandPinky2": "FK-Pinky2.R",
+  "mixamorig:LeftHandPinky3": "FK-Pinky3.L",
+  "mixamorig:RightHandPinky3": "FK-Pinky3.R"
+ },
+ "verificar": {
+  "mixamorig:LeftUpLeg": "DEF-Thigh1.L",
+  "mixamorig:RightUpLeg": "DEF-Thigh1.R",
+  "mixamorig:LeftLeg": "DEF-Shin1.L",
+  "mixamorig:RightLeg": "DEF-Shin1.R",
+  "mixamorig:LeftArm": "DEF-Upperarm1.L",
+  "mixamorig:RightArm": "DEF-Upperarm1.R",
+  "mixamorig:LeftForeArm": "DEF-Forearm1.L",
+  "mixamorig:RightForeArm": "DEF-Forearm1.R",
+  "mixamorig:Spine1": "DEF-Spine2",
+  "mixamorig:Head": "DEF-Head"
+ },
+ "cara": {
+  "mandibula": {
+   "hueso": "MSTR-Jaw",
+   "eje": 0,
+   "grados": 17
+  },
+  "comisuras": {
+   "L": "ACT-Lips_Corner.L",
+   "R": "ACT-Lips_Corner.R",
+   "arriba": [
+    0,
+    0.02,
+    0
+   ],
+   "ancho_L": [
+    0.02,
+    0,
+    0
+   ],
+   "ancho_R": [
+    -0.02,
+    0,
+    0
+   ],
+   "factor_redondo": 0.7
+  },
+  "parpados": {
+   "L": "ACT-Eyelid_Upper.L",
+   "R": "ACT-Eyelid_Upper.R",
+   "cerrar": [
+    0,
+    -0.04,
+    0
+   ]
+  },
+  "cejas": {
+   "L": "MSTR-Eyebrow.L",
+   "R": "MSTR-Eyebrow.R",
+   "subir": [
+    0,
+    0.03,
+    0
+   ]
+  },
+  "calibrado": "Blender 5.2: mandíbula +X abre; comisuras +Y sonrisa, L+X/R−X ancha; párpado −Y cierra; ceja +Y sube"
+ }
+}

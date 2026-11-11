@@ -561,8 +561,26 @@ def biblioteca_listar() -> dict:
     if cat.exists():
         for a in json.loads(cat.read_text(encoding="utf-8"))["animaciones"]:
             animaciones.append({k: a[k] for k in ("clave", "mixamo", "segundos", "en_lugar")})
-    return {"personajes": personajes, "animaciones": animaciones,
-            "nota": "Acciones que no estén aquí: usa {\"kimodo\": \"descripción en inglés\"} en la secuencia."}
+    from estudio import elenco
+
+    reparto = [{"nombre": n, "titulo": f["titulo"], "cara": "cara" in f,
+                "descargado": (elenco.carpeta(n) / ".completo").exists(), "credito": f["credito"]}
+               for n, f in elenco.fichas().items()]
+    return {"elenco": reparto, "personajes": personajes, "animaciones": animaciones,
+            "nota": "elenco = protagonistas con cara animable (labios, expresiones): úsalos en las tomas con "
+                    "personas. personajes = esqueletos Mixamo (remy) que sirven de base. Acciones que no estén "
+                    "aquí: usa {\"kimodo\": \"descripción en inglés\"} en la secuencia."}
+
+
+@mcp.tool
+def elenco_preparar(nombre: str = "") -> dict:
+    """Descarga a Drive los personajes del elenco (Blender Studio, CC-BY, cara completa). Vacío = todos.
+    Solo hace falta una vez; toma_crear también lo hace solo si falta. Devuelve un id de trabajo."""
+    args = ["preparar"] + (["--nombre", nombre] if nombre else [])
+    if not config.drive_disponible():
+        return {"error": config.AVISO_DRIVE}
+    return trabajos.iniciar(shlex.join([sys.executable, "-m", "estudio.elenco", *args]), "elenco: preparar",
+                            str(config.REPO), entorno={"PYTHONPATH": _entorno()["PYTHONPATH"]})
 
 
 @mcp.tool
@@ -577,7 +595,8 @@ def movimiento_preparar() -> dict:
 def toma_crear(proyecto: str, personaje: str, secuencia: list[dict], nombre: str = "toma",
                motor: str = "CYCLES", calidad: str = "final", hdri: str = "brown_photostudio_02",
                piso: str = "laminate_floor_02", con_voz: bool = False, camara: dict | None = None,
-               bloques: int = 3) -> dict:
+               bloques: int = 3, expresion: str = "neutral", intensidad: float = 1.0, habla: bool = False,
+               frase: int = -1) -> dict:
     """Arma y renderiza una toma 3D a MP4 vertical 1080x1920.
 
     secuencia: lista de tramos, en orden. Cada tramo es uno de:
@@ -590,7 +609,15 @@ def toma_crear(proyecto: str, personaje: str, secuencia: list[dict], nombre: str
     fundido con el tramo anterior; usa 15–20 si las poses de unión son muy distintas).
     motor: "CYCLES" (recomendado: usa la GPU con OptiX). "EEVEE" en Colab cae a CPU (sin EGL de NVIDIA).
     calidad: "borrador" (25 %, 16 muestras), "previa" (50 %, 32) o "final" (100 %, 64; Cycles: 128).
-    camara: {"angulo": 25, "distancia": 4.2, "altura": 1.45, "lente": 35, "acercamiento": 0.25}.
+    personaje: del elenco ("rain", "snow": cara animable, ver biblioteca_listar) o un Mixamo ("remy").
+    expresion (elenco): neutral, alegria, dolor, sorpresa, miedo, tristeza, enojo, asco, pensativo;
+      intensidad 0–1.5.
+    habla + frase (elenco): mueve los labios con la frase n de la narración (voz/frases.json). Úsalo cuando
+      el protagonista cuenta la historia en primera persona y se le ve la cara.
+    camara: {"plano": "primerisimo"} con planos predefinidos: general, medio, primer_plano, primerisimo
+      (gran angular pegado a la cara), contrapicado, picado, detalle_pies, detalle_manos. Ajustes opcionales:
+      angulo (grados alrededor; 0 = de frente), lente, distancia, altura_rel, acercamiento, inclinacion
+      (plano holandés, grados), temblor (cámara en mano, grados), objetivo (cabeza, pecho, cadera, pies, manos).
     con_voz: añade proyectos/<id>/voz/voz.wav como audio.
     bloques: procesos de render en paralelo sobre la GPU (Cycles). Los PNG quedan en el disco local
     (/content/eddie/cuadros/<proyecto>/<toma>/, ruta en «cuadros_png» del resultado) y el MP4 en Drive.
@@ -601,7 +628,9 @@ def toma_crear(proyecto: str, personaje: str, secuencia: list[dict], nombre: str
     args = ["toma", "--proyecto", str(d), "--nombre", nombre, "--personaje", personaje,
             "--secuencia", json.dumps(secuencia, ensure_ascii=False), "--motor", motor.upper(),
             "--muestras", str(muestras), "--escala", str(escala), "--hdri", hdri, "--piso", piso,
-            "--bloques", str(max(1, min(int(bloques), 8)))]
+            "--bloques", str(max(1, min(int(bloques), 8))),
+            "--expresion", expresion, "--intensidad", str(intensidad), "--habla", "1" if habla else "0",
+            "--frase", str(int(frase))]
     if con_voz:
         args += ["--audio", str(d / "voz" / "voz.wav")]
     if camara:
@@ -613,7 +642,8 @@ def toma_crear(proyecto: str, personaje: str, secuencia: list[dict], nombre: str
 
 @mcp.tool
 def video_montar(proyecto: str, plan: list[dict], textos: list[dict] | None = None, musica: str = "",
-                 musica_db: float = -20.0, fundido: int = 0, nombre: str = "final", calidad: str = "final") -> dict:
+                 musica_db: float = -20.0, fundido: int = 0, nombre: str = "final", calidad: str = "final",
+                 subtitulos: bool = True) -> dict:
     """Monta el video final en Blender: las tomas del proyecto alineadas a la narración, texto en pantalla,
     música opcional y audio a -14 LUFS (pico ≤ -1 dBTP). H.264 + AAC 1080x1920 30 fps.
 
@@ -629,12 +659,13 @@ def video_montar(proyecto: str, plan: list[dict], textos: list[dict] | None = No
     musica: ruta (absoluta o relativa a la carpeta del estudio en Drive); baja sola cuando habla el narrador.
     fundido: cuadros de fundido entre tomas (0 = corte directo, lo normal en el formato).
     calidad: "final" (1080x1920) o "borrador" (25 %, para revisar tiempos rápido).
+    subtitulos: palabra por palabra (grupos de 1–3) en el centro, como en los videos de historias.
     Resultado: proyectos/<id>/video/<nombre>.mp4 + copia en entregas/. Devuelve un id de trabajo."""
     d = _proyecto(proyecto)
     args = ["--proyecto", str(d), "--plan", json.dumps(plan, ensure_ascii=False),
             "--textos", json.dumps(textos or [], ensure_ascii=False), "--musica_db", str(musica_db),
             "--fundido", str(max(0, int(fundido))), "--nombre", nombre,
-            "--escala", "25" if calidad == "borrador" else "100"]
+            "--escala", "25" if calidad == "borrador" else "100", "--subtitulos", "1" if subtitulos else "0"]
     if musica:
         args += ["--musica", musica]
     if not config.drive_disponible():

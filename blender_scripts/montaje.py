@@ -92,12 +92,33 @@ def main() -> None:
         tx.location = (0.5, float(t.get("altura", 0.86)))  # arriba, sin tapar caras
         tx.anchor_x, tx.anchor_y = "CENTER", "CENTER"
         tx.color = (1, 1, 1, 1)
-        tx.use_bold = True
         if hasattr(tx, "use_outline"):
             tx.use_outline, tx.outline_color, tx.outline_width = True, (0, 0, 0, 1), 0.06
         tx.use_shadow, tx.shadow_color = True, (0, 0, 0, 0.6)
         if fuente:
             tx.font = fuente
+
+    # Subtítulos palabra por palabra (grupos cortos en el centro, como en los videos de historias).
+    fuente_sub = None
+    if plan.get("fuente_subtitulos") and os.path.exists(plan["fuente_subtitulos"]):
+        fuente_sub = bpy.data.fonts.load(plan["fuente_subtitulos"])
+    for k, t in enumerate(plan.get("subtitulos", [])):
+        tx = nuevo_efecto(col, f"sub_{k:03d}", "TEXT", 9 + k % 2, int(t["inicio"]), int(t["duracion"]))
+        tx.text = t["texto"]
+        tx.font_size = int(plan.get("subtitulos_tamano", 92))
+        tx.location = (0.5, float(plan.get("subtitulos_altura", 0.40)))
+        tx.anchor_x, tx.anchor_y = "CENTER", "CENTER"
+        tx.wrap_width = 0.96
+        tx.color = (1, 1, 1, 1)
+        if hasattr(tx, "use_outline"):
+            tx.use_outline, tx.outline_color, tx.outline_width = True, (0, 0, 0, 1), 0.05
+        tx.use_shadow, tx.shadow_color = True, (0, 0, 0, 0.75)
+        if hasattr(tx, "shadow_offset"):
+            tx.shadow_offset, tx.shadow_blur = 0.06, 0.25
+        if fuente_sub:
+            tx.font = fuente_sub
+        else:
+            tx.use_bold = True
 
     if os.path.isdir(a.cuadros):
         shutil.rmtree(a.cuadros)
