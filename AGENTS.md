@@ -93,7 +93,9 @@ No finjas un video terminado.
 2. `voz_generar(proyecto=<id>, narrador="narrador")` → trabajo. Al terminar revisa el `RESULTADO_JSON`:
    - `frases_con_error` vacío;
    - `cer_promedio` < 0.05;
-   - `palabras_por_s` entre 3.0 y 3.8.
+   - `palabras_por_s` entre 3.0 y 3.8. Si sale más lento (la voz elegida del canal habla ~2.5 pal/s),
+     vuelve a llamar `voz_generar` con `velocidad = 3.3 / palabras_por_s` (máx. 1.3). Acelera sin cambiar
+     el tono.
    - Si una frase falla, reescríbela más simple y vuelve a generar.
 3. El resultado queda en `proyectos/<id>/voz/`:
    - `voz.wav`;

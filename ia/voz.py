@@ -104,6 +104,29 @@ def a_48k(wav, sr: int):
     return wav if sr == SR_SALIDA else librosa.resample(wav, orig_sr=sr, target_sr=SR_SALIDA)
 
 
+def cambiar_velocidad(wav, factor: float):
+    """Acelera (factor > 1) o frena el audio SIN cambiar el tono de la voz (ffmpeg rubberband o atempo).
+    Es procesamiento de audio, no generación con IA."""
+    import subprocess
+    import tempfile
+
+    import soundfile as sf
+
+    if abs(factor - 1.0) < 1e-3:
+        return wav
+    filtros = subprocess.run(["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True).stdout
+    filtro = (f"rubberband=tempo={factor}:pitchq=quality" if " rubberband " in filtros
+              else f"atempo={factor}")
+    with tempfile.TemporaryDirectory() as d:
+        ent, sal = f"{d}/ent.wav", f"{d}/sal.wav"
+        sf.write(ent, wav, SR_SALIDA, subtype="FLOAT")
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", ent, "-filter:a", filtro, "-ar", str(SR_SALIDA),
+                        "-c:a", "pcm_f32le", sal], check=True)
+        nuevo, _ = sf.read(sal, dtype="float32")
+    log(f"Velocidad ×{factor} aplicada ({filtro.split('=')[0]}).")
+    return nuevo
+
+
 def transcribir(whisper, wav_path: str) -> str:
     r = whisper.transcribe(wav_path, language="es", verbose=None, regroup=False)
     return (getattr(r, "text", None) or r.get("text", "")).strip()
@@ -228,6 +251,11 @@ def cmd_generar(a) -> None:
         partes.append(w)
         t += len(w) / SR_SALIDA
     voz = np.concatenate(partes)
+    if abs(a.velocidad - 1.0) >= 1e-3:
+        voz = cambiar_velocidad(voz, a.velocidad)
+        for tf in tiempos_frases:  # los tiempos se escalan igual que el audio
+            tf["inicio"] = round(tf["inicio"] / a.velocidad, 3)
+            tf["fin"] = round(tf["fin"] / a.velocidad, 3)
     pico = float(np.max(np.abs(voz))) or 1.0
     voz = (voz / pico * 0.89).astype("float32")  # pico a -1 dBFS; la sonoridad final se ajusta en el montaje
     ruta_voz = salida / "voz.wav"
@@ -257,6 +285,7 @@ def cmd_generar(a) -> None:
     reporte = {
         "ok": not reprobadas,
         "narrador": a.narrador,
+        "velocidad": a.velocidad,
         "duracion_s": round(duracion, 2),
         "frases": len(frases),
         "palabras": n_pal,
@@ -300,6 +329,8 @@ def main() -> None:
     pg.add_argument("--cer-excelente", type=float, default=0.02, help="si una toma llega aquí, se acepta ya")
     pg.add_argument("--pausa", type=float, default=0.10, help="segundos entre frases")
     pg.add_argument("--whisper", default="large-v3")
+    pg.add_argument("--velocidad", type=float, default=1.0,
+                    help="acelera (>1) o frena (<1) la narración final sin cambiar el tono (0.8–1.3)")
     pg.add_argument("--cfg", type=float, default=2.0)
     pg.add_argument("--pasos", type=int, default=10)
     pg.add_argument("--semilla", type=int, default=42)

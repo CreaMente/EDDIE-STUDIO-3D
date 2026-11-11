@@ -510,17 +510,21 @@ def voz_elegir_narrador(nombre: str, candidata: int) -> dict:
 
 @mcp.tool
 def voz_generar(proyecto: str, narrador: str, tomas: int = 3, max_tomas: int = 6, pausa_s: float = 0.10,
-                whisper: str = "large-v3") -> dict:
+                whisper: str = "large-v3", velocidad: float = 1.0) -> dict:
     """Narra guion.txt del proyecto con la voz del narrador (VoxCPM2 en la GPU). Por cada frase genera
     varias tomas, Whisper verifica que diga exactamente el guion y se elige la mejor. Resultado en
     proyectos/<id>/voz/: voz.wav (48 kHz), palabras.json (inicio/fin de cada palabra), frases.json y
-    reporte.json. Devuelve un id de trabajo."""
+    reporte.json. `velocidad` (0.8–1.3) acelera o frena la narración final sin cambiar el tono: si el
+    reporte da palabras_por_s < 3.0, vuelve a generar con velocidad ≈ 3.3 / palabras_por_s.
+    Devuelve un id de trabajo."""
     d = _proyecto(proyecto)
     if not (d / "guion.txt").exists():
         return {"error": f"No existe {d / 'guion.txt'}. Crea el proyecto con su guion primero."}
     return _trabajo_ia("voz", "ia.voz", ["generar", "--proyecto", str(d), "--narrador", _slug(narrador),
                                          "--tomas", str(tomas), "--max-tomas", str(max_tomas),
-                                         "--pausa", str(pausa_s), "--whisper", whisper], f"voz: generar {d.name}")
+                                         "--pausa", str(pausa_s), "--whisper", whisper,
+                                         "--velocidad", str(max(0.8, min(float(velocidad), 1.3)))],
+                       f"voz: generar {d.name}")
 
 
 # ───────────────────────── arranque ─────────────────────────
