@@ -61,7 +61,7 @@ El estudio se expone como servidor MCP `eddie-studio` por un túnel **temporal**
 | 2. Voz y tiempos (VoxCPM2 + Whisper) | **Completa en GPU.** Narrador fijo `narrador` (candidata 2). Prueba: guion de 61 palabras → 18.98 s de voz en 31.5 s, 0 % de error, 61/61 palabras alineadas, 3.21 pal/s |
 | 3. Director de escena y animación | **Funciona en GPU** con Remy. **Nuevo (probado en CPU, falta GPU):** elenco Blender Studio con cara (rain, snow): movimiento transferido al rig (error ≤ 6°), labios por visemas del español, expresiones y parpadeo; planos estilo historia y look |
 | 4. Render por bloques y montaje | **Completa en GPU.** `bloques=3` (lo óptimo; 5 no mejora): 1080x1920 a 128 muestras en 0.85 s/cuadro (antes 1.56). Primer video completo (`20261111-1308-rodilla-rota-sin-medico`, 17.4 s, 4 tomas): tomas finales + montaje en 10 min 47 s, -14.04 LUFS |
-| 5. Recursos automáticos (APIs + IA 3D) | **Construida, probada en CPU; falta la descarga completa en Colab.** Catálogo + compuerta de licencias oficiales + descargas reanudables. Poly Haven, ambientCG, 100STYLE y Blender Studio automáticos (~117 GB en perfil producción); Quaternius/Kenney por navegador + ingestor. 100STYLE → animaciones de estilo validadas en Remy |
+| 5. Recursos automáticos (APIs + IA 3D) | **Completa en GPU.** 116.7 GB en Drive (cuenta de Colab, 33 TB): Poly Haven 997 HDRI + 869 texturas + 520 modelos; ambientCG 2.039 materiales + 437 HDRI + calcomanías y atlas; 21 personajes de Blender Studio (sin ficha aún). 100STYLE → **499 animaciones de estilo** aprobadas en Remy (solo `estilo_saltar_pie_der_correr` rechazada). Muebles en cuadro con el respaldo contra la pared (medido con Rain: sillón y sofá Chesterfield) |
 | 6. Look y estilo | Pendiente |
 | 7. Robustez | Pendiente |
 
@@ -184,9 +184,12 @@ no se pueden habilitar. Nunca se sobrescribe ni se borra nada: todo es reanudabl
    `estilo_deprimido_quieto`, `estilo_borracho_caminar`, `estilo_cojear_izq_caminar`, `estilo_zombi_caminar`,
    `estilo_a_oscuras_caminar`, `estilo_apurado_correr`, `estilo_orgulloso_caminar`, `estilo_celular_der_caminar`…
    Son actuación real (no cambian velocidad). No traen dedos ni muñecas: manos relajadas. Revisa cada estilo
-   nuevo con una hoja de contacto antes de usarlo en un video.
+   nuevo con una hoja de contacto antes de usarlo en un video. Validación: saltos ≤ 25° por cuadro en columna,
+   cadera y cabeza (35° corriendo) y ≤ 35° en extremidades.
 4. **Usar lo descargado** (`recursos_buscar("wooden chair", tipo="modelo")` da la clave):
-   - modelo de Poly Haven como objeto o mueble: `"objeto": "Camera_01"`, `"muebles": ["ArmChair_01", …]`;
+   - modelo de Poly Haven como objeto o mueble: `"objeto": "Camera_01"`, `"muebles": ["ArmChair_01", …]`.
+     Los muebles se ponen detrás del personaje (la sala crece para que quepan), dentro del cuadro y con el
+     respaldo contra la pared; `render.escenario.muebles` del reporte dice dónde quedó cada uno y si está en cuadro;
    - materiales de ambientCG en paredes/piso: `{"tipo": "habitacion", "pared": "Bricks076A", "piso": "WoodFloor051"}`;
    - HDRI: `hdri="sunflowers_puresky"` (Poly Haven) o `"acg:DaySkyHDRI072B"` (ambientCG).
    Si algo pedido aún no está en Drive, se baja en ese momento. Los créditos se escriben solos.
