@@ -635,15 +635,18 @@ def recursos_estimar(fuentes: str = "", perfil: str = "produccion") -> dict:
 
 @mcp.tool
 def recursos_descargar(fuentes: str = "", tipos: str = "", perfil: str = "produccion", limite_gb: float = 330.0,
-                       maximo: int = 0, hilos: int = 6) -> dict:
+                       maximo: int = 0, hilos: int = 6, reintentar: bool = False) -> dict:
     """Descarga a Drive TODO lo de las fuentes automáticas verificadas (polyhaven, ambientcg, estilos100,
     blender_studio; vacío = todas), lo valida y lo deja listo para las tomas. Reanudable: si se corta o se
     cierra Colab, llámala otra vez y sigue donde quedó (no repite ni sobrescribe nada). Se detiene sola al
     llegar a limite_gb o si Drive queda con menos de 5 GB. maximo = recursos por fuente (0 = todos; usa 3
-    para una prueba). Tarda horas: revisa con trabajo_estado y recursos_estado. Devuelve un id."""
+    para una prueba). reintentar=true vuelve a validar lo rechazado por un error del validador (lo que ya
+    está en Drive no se baja de nuevo; los personajes solo para suscriptores no se tocan). Tarda horas: revisa
+    con trabajo_estado y recursos_estado. Devuelve un id."""
     args = ["descargar", "--perfil", perfil, "--limite_gb", str(limite_gb), "--hilos", str(hilos)]
     args += (["--fuentes", fuentes] if fuentes else []) + (["--tipos", tipos] if tipos else [])
     args += ["--max", str(maximo)] if maximo else []
+    args += ["--reintentar"] if reintentar else []
     return _trabajo_recursos(args, "recursos: descargar")
 
 

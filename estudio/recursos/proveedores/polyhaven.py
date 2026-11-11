@@ -83,7 +83,12 @@ def descargar(entrada: dict, perfil: str = "produccion", registro=print) -> dict
         raise IOError("la fuente no publica archivos en las resoluciones del perfil")
     for url, destino, tam, md5 in lista:
         total += bajar(url, destino, tam=tam, md5=md5, registro=registro)
-    rutas = sorted({str(d if entrada["tipo"] == "hdri" else d.parent) for _, d, _, _ in lista})
+    if entrada["tipo"] == "modelo":  # la carpeta del modelo (no su subcarpeta textures/)
+        rutas = sorted({str(config.ruta_drive("biblioteca", "modelos", f"{entrada['clave']}_{res}"))
+                        for res in PERFILES[perfil]["modelo"]
+                        if archivos(entrada["clave"]).get("gltf", {}).get(res)})
+    else:
+        rutas = sorted({str(d if entrada["tipo"] == "hdri" else d.parent) for _, d, _, _ in lista})
     if entrada["tipo"] == "modelo":  # misma marca que estudio/polyhaven.modelo()
         for res in PERFILES[perfil]["modelo"]:
             g = archivos(entrada["clave"]).get("gltf", {}).get(res, {}).get("gltf")

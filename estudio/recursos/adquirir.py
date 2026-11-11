@@ -31,6 +31,8 @@ from . import catalogo, licencias
 from .descargas import SinEspacio
 from .proveedores import AUTOMATICOS, modulo
 
+# Rechazos definitivos (no cambian por volver a intentar).
+NO_REINTENTAR = {"solo para suscriptores", "la página no dice CC-BY"}
 PRIORIDAD = {"polyhaven": 0, "ambientcg": 1, "estilos100": 2, "blender_studio": 3}
 
 
@@ -180,7 +182,9 @@ def cmd_descargar(a) -> None:
     detener = None
     for f in fuentes:
         mod = modulo(f)
-        pendientes = [r for r in catalogo.listar(fuente=f) if r["estado"] in ("descubierto", "error")]
+        pendientes = [r for r in catalogo.listar(fuente=f) if r["estado"] in ("descubierto", "error")
+                      or (a.reintentar and r["estado"] == "rechazado"
+                          and (r.get("extra") or {}).get("motivo") not in NO_REINTENTAR)]
         if a.tipos:
             pendientes = [r for r in pendientes if r["tipo"] in a.tipos.split(",")]
         pendientes.sort(key=lambda r: -float((r.get("extra") or {}).get("descargas")
@@ -303,6 +307,8 @@ def main() -> None:
         s.add_argument("--max", type=int, default=0, help="máximo de recursos por fuente (0 = todos)")
         s.add_argument("--hilos", type=int, default=6)
         s.add_argument("--sin_descubrir", action="store_true")
+        s.add_argument("--reintentar", action="store_true",
+                       help="vuelve a validar también lo rechazado (lo ya bajado no se baja de nuevo)")
     s = sub.add_parser("estado")
     s = sub.add_parser("reporte")
     s = sub.add_parser("ingresar")

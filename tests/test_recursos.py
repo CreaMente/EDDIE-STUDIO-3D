@@ -27,6 +27,8 @@ os.environ.update({"EDDIE_DRIVE": str(TMP / "drive" / "EDDIE_STUDIO"), "EDDIE_PR
 
 from estudio.recursos import bvh, catalogo, descargas, ingestor, licencias  # noqa: E402
 
+descargas.MARGEN_LOCAL_GB = 0.0  # la prueba no depende del disco libre de la máquina
+
 OK = []
 
 
