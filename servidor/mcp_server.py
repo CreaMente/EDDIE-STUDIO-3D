@@ -657,9 +657,10 @@ def recursos_estado() -> dict:
     if not config.drive_disponible():
         return {"error": config.AVISO_DRIVE}
     from estudio.recursos import catalogo, licencias
-    from estudio.recursos.descargas import libre_gb
+    from estudio.drive import cuota
     try:
-        return {"catalogo": catalogo.resumen(), "licencias": licencias.resumen(), "drive_libre_gb": libre_gb(config.DRIVE)}
+        return {"catalogo": catalogo.resumen(), "licencias": licencias.resumen(), "drive_cuota": cuota(),
+                "nota": "drive_cuota = espacio real de la cuenta de Drive de Colab (dueña de los archivos que crea)."}
     finally:
         catalogo.cerrar()
 

@@ -55,11 +55,24 @@ def libre_gb(ruta: Path) -> float | None:
     return uso.free / 1e9 if uso.total > 1e9 else None
 
 
+_cuota = {"t": 0.0, "libre": None}
+
+
+def drive_libre_gb() -> float | None:
+    """Cuota libre REAL de Drive (API), consultada como mucho cada 5 min. El espacio del montaje
+    /content/drive es el disco de la máquina de Colab, no Drive: no sirve para esto."""
+    if time.time() - _cuota["t"] > 300:
+        from ..drive import cuota
+        q = cuota()
+        _cuota.update({"t": time.time(), "libre": (q or {}).get("libre_gb")})
+    return _cuota["libre"]
+
+
 def esperar_espacio(destino: Path, necesarios: int = 0, registro=print) -> None:
     """Drive con margen (si no, SinEspacio) y disco local con margen (si no, espera a que Drive suba)."""
-    libre = libre_gb(config.DRIVE)
+    libre = drive_libre_gb()
     if libre is not None and libre - necesarios / 1e9 < MARGEN_DRIVE_GB:
-        raise SinEspacio(f"Quedan {libre:.1f} GB en Drive (margen {MARGEN_DRIVE_GB} GB).")
+        raise SinEspacio(f"Quedan {libre:.1f} GB en la cuota de Drive (margen {MARGEN_DRIVE_GB} GB).")
     local = Path("/content") if Path("/content").exists() else config.LOCAL
     esperado = 0
     while (libre_gb(local) or 1e9) < MARGEN_LOCAL_GB and esperado < 1800:

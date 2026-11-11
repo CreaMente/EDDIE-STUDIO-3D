@@ -54,6 +54,36 @@ def servicio():
     return build("drive", "v3", cache_discovery=False)
 
 
+def cuota() -> dict | None:
+    """Espacio REAL de la cuenta de Drive que monta Colab (API de Drive). El montaje /content/drive informa
+    el disco de la máquina de Colab, no la cuota de Drive. None si no se puede consultar."""
+    import threading
+
+    caja: dict = {}
+
+    def consultar():
+        try:
+            caja["r"] = servicio().about().get(fields="user(emailAddress),storageQuota").execute()
+        except Exception as e:  # noqa: BLE001
+            caja["e"] = e
+
+    hilo = threading.Thread(target=consultar, daemon=True)
+    hilo.start()
+    hilo.join(20)  # nunca colgar un trabajo por esta consulta
+    if "r" not in caja:
+        return None
+    try:
+        r = caja["r"]
+        q = r.get("storageQuota", {})
+        limite = int(q["limit"]) if q.get("limit") else None
+        uso = int(q.get("usage", 0))
+        return {"cuenta": r.get("user", {}).get("emailAddress"), "uso_gb": round(uso / 1e9, 1),
+                "limite_gb": round(limite / 1e9, 1) if limite else None,
+                "libre_gb": round((limite - uso) / 1e9, 1) if limite else None}
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def cuenta_actual(svc) -> str:
     return svc.about().get(fields="user(emailAddress)").execute()["user"]["emailAddress"]
 

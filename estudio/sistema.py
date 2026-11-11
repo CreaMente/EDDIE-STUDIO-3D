@@ -61,6 +61,11 @@ def disco(ruta: Path) -> dict | None:
     return {"ruta": str(ruta), "total_gb": round(u.total / 1e9, 1), "libre_gb": round(u.free / 1e9, 1)}
 
 
+def _cuota_drive():
+    from .drive import cuota
+    return cuota()
+
+
 def blender_bin() -> Path | None:
     """Ruta del ejecutable de Blender instalado por el sistema (o en el PATH)."""
     p = config.ruta_local("blender", f"blender-{config.BLENDER_VERSION}-linux-x64", "blender")
@@ -84,7 +89,8 @@ def diagnostico(claves_presentes: list[str] | None = None) -> dict:
         "gpu": gpu(),
         "memoria": memoria(),
         "disco_local": disco(config.LOCAL if config.LOCAL.exists() else Path("/")),
-        "disco_drive": disco(config.DRIVE) if config.drive_disponible() else None,
+        # El montaje de Drive informa el disco de la máquina, no la cuota: la cuota real va por la API.
+        "drive_cuota": _cuota_drive() if config.drive_disponible() else None,
         "drive_montado": config.drive_disponible(),
         **({} if config.drive_disponible() else {"drive_aviso": config.AVISO_DRIVE}),
         "blender": version_blender(),

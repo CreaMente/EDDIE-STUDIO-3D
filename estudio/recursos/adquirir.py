@@ -245,9 +245,8 @@ def cmd_descargar(a) -> None:
 # ───────────────────────── consultas ─────────────────────────
 
 def cmd_estado(a) -> None:
-    from .descargas import libre_gb
-    resultado({"ok": True, "catalogo": catalogo.resumen(), "licencias": licencias.resumen(),
-               "drive_libre_gb": libre_gb(config.DRIVE)})
+    from ..drive import cuota
+    resultado({"ok": True, "catalogo": catalogo.resumen(), "licencias": licencias.resumen(), "drive_cuota": cuota()})
 
 
 def cmd_buscar(a) -> None:
