@@ -576,7 +576,8 @@ def movimiento_preparar() -> dict:
 @mcp.tool
 def toma_crear(proyecto: str, personaje: str, secuencia: list[dict], nombre: str = "toma",
                motor: str = "CYCLES", calidad: str = "final", hdri: str = "brown_photostudio_02",
-               piso: str = "laminate_floor_02", con_voz: bool = False, camara: dict | None = None) -> dict:
+               piso: str = "laminate_floor_02", con_voz: bool = False, camara: dict | None = None,
+               bloques: int = 3) -> dict:
     """Arma y renderiza una toma 3D a MP4 vertical 1080x1920.
 
     secuencia: lista de tramos, en orden. Cada tramo es uno de:
@@ -591,18 +592,55 @@ def toma_crear(proyecto: str, personaje: str, secuencia: list[dict], nombre: str
     calidad: "borrador" (25 %, 16 muestras), "previa" (50 %, 32) o "final" (100 %, 64; Cycles: 128).
     camara: {"angulo": 25, "distancia": 4.2, "altura": 1.45, "lente": 35, "acercamiento": 0.25}.
     con_voz: añade proyectos/<id>/voz/voz.wav como audio.
+    bloques: procesos de render en paralelo sobre la GPU (Cycles). Los PNG quedan en el disco local
+    (/content/eddie/cuadros/<proyecto>/<toma>/, ruta en «cuadros_png» del resultado) y el MP4 en Drive.
     Devuelve un id de trabajo; al terminar revisa el MP4 con hoja_de_contacto."""
     perfiles = {"borrador": (25, 16), "previa": (50, 32), "final": (100, 128 if motor.upper() == "CYCLES" else 64)}
     escala, muestras = perfiles.get(calidad, perfiles["final"])
     d = _proyecto(proyecto)
     args = ["toma", "--proyecto", str(d), "--nombre", nombre, "--personaje", personaje,
             "--secuencia", json.dumps(secuencia, ensure_ascii=False), "--motor", motor.upper(),
-            "--muestras", str(muestras), "--escala", str(escala), "--hdri", hdri, "--piso", piso]
+            "--muestras", str(muestras), "--escala", str(escala), "--hdri", hdri, "--piso", piso,
+            "--bloques", str(max(1, min(int(bloques), 8)))]
     if con_voz:
         args += ["--audio", str(d / "voz" / "voz.wav")]
     if camara:
         args += ["--camara", json.dumps(camara)]
     return _trabajo_estudio(args, f"toma {nombre} ({calidad})")
+
+
+# ───────────────────────── montaje (Fase 4) ─────────────────────────
+
+@mcp.tool
+def video_montar(proyecto: str, plan: list[dict], textos: list[dict] | None = None, musica: str = "",
+                 musica_db: float = -20.0, fundido: int = 0, nombre: str = "final", calidad: str = "final") -> dict:
+    """Monta el video final en Blender: las tomas del proyecto alineadas a la narración, texto en pantalla,
+    música opcional y audio a -14 LUFS (pico ≤ -1 dBTP). H.264 + AAC 1080x1920 30 fps.
+
+    plan: una entrada por toma, en orden. La primera empieza en 0; cada una dura hasta que empieza la
+    siguiente y la última hasta la última palabra. Dónde empieza cada toma (desde la segunda):
+      {"toma": "t02", "frase": 1}           al empezar la frase 1 (proyectos/<id>/voz/frases.json)
+      {"toma": "t03", "palabra": 37}        en la palabra 37 (voz/palabras.json), corte a mitad de frase
+      {"toma": "t04", "inicio_s": 12.4}     en el segundo 12.4
+      + "desde_s": 1.5 (opcional) para usar la toma a partir de su segundo 1.5.
+    Cada toma debe durar al menos su tramo: si es más corta se congela su último cuadro y sale un aviso.
+    textos: [{"texto": "DÍA 3", "frase": 4}] (dura la frase) o con "palabra"/"inicio_s" + "segundos".
+      Opcionales: "tamano" (px, 120), "altura" (0–1, 0.86 = arriba).
+    musica: ruta (absoluta o relativa a la carpeta del estudio en Drive); baja sola cuando habla el narrador.
+    fundido: cuadros de fundido entre tomas (0 = corte directo, lo normal en el formato).
+    calidad: "final" (1080x1920) o "borrador" (25 %, para revisar tiempos rápido).
+    Resultado: proyectos/<id>/video/<nombre>.mp4 + copia en entregas/. Devuelve un id de trabajo."""
+    d = _proyecto(proyecto)
+    args = ["--proyecto", str(d), "--plan", json.dumps(plan, ensure_ascii=False),
+            "--textos", json.dumps(textos or [], ensure_ascii=False), "--musica_db", str(musica_db),
+            "--fundido", str(max(0, int(fundido))), "--nombre", nombre,
+            "--escala", "25" if calidad == "borrador" else "100"]
+    if musica:
+        args += ["--musica", musica]
+    if not config.drive_disponible():
+        return {"error": config.AVISO_DRIVE}
+    return trabajos.iniciar(shlex.join([sys.executable, "-m", "estudio.montaje", *args]), f"montaje {nombre}",
+                            str(config.REPO), entorno={"PYTHONPATH": _entorno()["PYTHONPATH"]})
 
 
 # ───────────────────────── arranque ─────────────────────────

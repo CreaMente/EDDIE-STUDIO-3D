@@ -4,10 +4,14 @@ Uso:
   blender -b --factory-startup -P escena_toma.py -- --animado animado.blend --salida toma.mp4 \
       --hdri estudio.hdr --piso '{"color": ".../color.jpg", "normal": "...", "rugosidad": "..."}' \
       [--motor EEVEE|CYCLES] [--muestras 64] [--escala 100] [--audio voz.wav] [--cuadros 1-120]
+      [--carpeta_cuadros /content/eddie/cuadros/…] [--bloques 3]
 
 Escena: iluminación HDRI (Poly Haven) + luz principal suave, piso con textura PBR, cámara de 35 mm que
 sigue la cadera del personaje con un acercamiento lento (la cámara nunca se queda quieta) y desenfoque
 de fondo. Render de cuadros PNG y codificación H.264 (con el audio si se pasa).
+
+Velocidad: los cuadros se escriben en el disco local (no en Drive) y, con Cycles, el rango se reparte en
+--bloques procesos de Blender en paralelo sobre la misma GPU (cada cuadro pequeño no la llena sola).
 """
 
 from __future__ import annotations
@@ -140,6 +144,8 @@ def main() -> None:
     p.add_argument("--angulo", type=float, default=25, help="grados alrededor del personaje")
     p.add_argument("--acercamiento", type=float, default=0.25, help="fracción que se acerca durante la toma")
     p.add_argument("--hdri_rotacion", type=float, default=0)
+    p.add_argument("--carpeta_cuadros", default="", help="dónde escribir los PNG (mejor disco local)")
+    p.add_argument("--bloques", type=int, default=1, help="procesos de render en paralelo (solo Cycles)")
     a = p.parse_args(comun.argumentos())
     t0 = time.time()
 
@@ -186,16 +192,23 @@ def main() -> None:
             if hasattr(ee, attr):
                 setattr(ee, attr, val)
     r.use_motion_blur = True
+    r.use_persistent_data = True  # no reconstruye la escena en la GPU en cada cuadro
     comun.color_cinematico(esc)
 
-    carpeta = os.path.splitext(a.salida)[0] + "_cuadros"
+    carpeta = a.carpeta_cuadros or (os.path.splitext(a.salida)[0] + "_cuadros")
     if os.path.isdir(carpeta):
         shutil.rmtree(carpeta)
     os.makedirs(carpeta)
+    os.makedirs(os.path.dirname(os.path.abspath(a.salida)), exist_ok=True)
     r.image_settings.file_format = "PNG"
     r.filepath = os.path.join(carpeta, "")
     t1 = time.time()
-    bpy.ops.render.render(animation=True)
+    n = f_fin - f_ini + 1
+    bloques = max(1, min(a.bloques, n // 15)) if a.motor == "CYCLES" else 1
+    if bloques > 1:
+        info["bloques"] = render_en_bloques(carpeta, f_ini, f_fin, bloques)
+    else:
+        bpy.ops.render.render(animation=True)
     t2 = time.time()
 
     cmd = ["ffmpeg", "-v", "error", "-y", "-framerate", "30", "-start_number", str(f_ini),
@@ -205,11 +218,42 @@ def main() -> None:
     cmd += ["-c:v", "libx264", "-preset", "slow", "-crf", "17", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
             a.salida]
     subprocess.run(cmd, check=True)
-    n = f_fin - f_ini + 1
     info.update({"salida": a.salida, "carpeta_cuadros": carpeta, "segundos_render": round(t2 - t1, 1),
                  "segundos_por_cuadro": round((t2 - t1) / n, 2), "segundos_total": round(time.time() - t0, 1),
                  "con_audio": bool(a.audio and os.path.exists(a.audio))})
     comun.resultado(info)
+
+
+def render_en_bloques(carpeta: str, f_ini: int, f_fin: int, bloques: int) -> list[dict]:
+    """Guarda la escena preparada y la renderiza con N procesos de Blender en paralelo (rangos contiguos)."""
+    escena = os.path.join(carpeta, "_escena.blend")
+    bpy.ops.wm.save_as_mainfile(filepath=escena, copy=True)
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "render_bloque.py")
+    n = f_fin - f_ini + 1
+    cortes = [f_ini + round(n * k / bloques) for k in range(bloques + 1)]
+    procesos = []
+    for k in range(bloques):
+        ini, fin = cortes[k], cortes[k + 1] - 1
+        registro = open(os.path.join(carpeta, f"_bloque_{k}.log"), "w")
+        cmd = [bpy.app.binary_path, "-b", "--factory-startup", escena, "-P", script, "--",
+               "--ini", str(ini), "--fin", str(fin)]
+        procesos.append((subprocess.Popen(cmd, stdout=registro, stderr=subprocess.STDOUT), registro, ini, fin))
+    print(f"[bloques] {bloques} procesos: " + ", ".join(f"{i}-{f}" for _, _, i, f in procesos), flush=True)
+    hechos, fallas = [], []
+    for proc, registro, ini, fin in procesos:
+        proc.wait()
+        registro.close()
+        texto = open(registro.name, errors="replace").read()
+        linea = next((l for l in texto.splitlines() if l.startswith("RESULTADO_JSON: ")), None)
+        if proc.returncode != 0 or not linea:
+            fallas.append(f"bloque {ini}-{fin} (código {proc.returncode}):\n" + "\n".join(texto.splitlines()[-25:]))
+        else:
+            r = json.loads(linea[len("RESULTADO_JSON: "):])
+            hechos.append({"cuadros": f"{ini}-{fin}", "segundos": r.get("segundos"), "backend": r.get("backend")})
+    if fallas:
+        raise SystemExit("Falló el render por bloques:\n" + "\n\n".join(fallas))
+    os.remove(escena)
+    return hechos
 
 
 if __name__ == "__main__":

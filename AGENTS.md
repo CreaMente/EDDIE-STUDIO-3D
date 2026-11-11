@@ -60,7 +60,7 @@ El estudio se expone como servidor MCP `eddie-studio` por un túnel **temporal**
 | 1. Biblioteca base | **En marcha.** Personaje Mixamo «remy» + 30 animaciones Mixamo importadas (`mixamo_importar`). HDRI y texturas de Poly Haven automáticos |
 | 2. Voz y tiempos (VoxCPM2 + Whisper) | **Completa en GPU.** Narrador fijo `narrador` (candidata 2). Prueba: guion de 61 palabras → 18.98 s de voz en 31.5 s, 0 % de error, 61/61 palabras alineadas, 3.21 pal/s |
 | 3. Director de escena y animación | **Funciona en GPU.** `toma_crear` encadena Mixamo + Kimodo (texto → movimiento en ~23 s, retargeting a Mixamo con anclaje al piso) y renderiza a MP4. Pendiente: Audio2Face (cara) |
-| 4. Render por bloques y montaje | Pendiente |
+| 4. Render por bloques y montaje | **Construida (probada en CPU con Blender 5.2):** render en bloques paralelos con cuadros en disco local; `video_montar` monta las tomas alineadas a la voz, texto en pantalla, música y audio a -14 LUFS. Pendiente: medir en GPU |
 | 5. Recursos automáticos (APIs + IA 3D) | Pendiente |
 | 6. Look y estilo | Pendiente |
 | 7. Robustez | Pendiente |
@@ -137,6 +137,23 @@ No finjas un video terminado.
 - **Cámara:** sigue a la cadera con acercamiento lento. Ajusta con `camara={"angulo", "distancia", "altura", "lente", "acercamiento"}`.
 - **Escenario:** `hdri` y `piso` son ids de Poly Haven. Se descargan solos y quedan en Drive.
 - **Créditos:** se escriben solos en `proyectos/<id>/CREDITOS.txt`.
+
+## Video completo (Fase 4)
+1. **Guion y voz:** `proyecto_crear` → `voz_generar`. Lee `proyectos/<id>/voz/frases.json`: cada frase
+   trae `inicio`, `fin` y `texto`. Esa es la duración que debe cubrir cada toma.
+2. **Plan de tomas:** una toma por frase (o por grupo de frases cortas). Para cada una, calcula sus segundos
+   = `fin` de su última frase − `inicio` de su primera frase, **+ 0.5 s de margen**. Varía planos y ángulos
+   (`camara`) entre tomas seguidas.
+3. **Tomas:** `toma_crear(..., calidad="borrador")` de todas → revisa → `calidad="final"` de todas.
+   - Las tomas renderizan en `bloques` procesos paralelos (3 por defecto). Los PNG quedan en el disco local
+     (`cuadros_png` del resultado; se borran al cerrar Colab) y el MP4 en Drive.
+4. **Montaje:** `video_montar(proyecto, plan=[{"toma": "t01", "frase": 0}, {"toma": "t02", "frase": 2}, …],
+   textos=[{"texto": "DÍA 3", "frase": 4}])`.
+   - Primero con `calidad="borrador"` para revisar cortes y textos (`hoja_de_contacto` del MP4); luego `final`.
+   - Revisa en el `RESULTADO_JSON`: `avisos` vacío (si una toma quedó corta, vuelve a renderizarla más
+     larga), `lufs` ≈ -14 y `pico_dbtp` ≤ -1, `duracion_s`.
+   - El video queda en `proyectos/<id>/video/<nombre>.mp4` y en `entregas/`.
+5. **Música** (opcional): solo con licencia de uso comercial; pasa la ruta en `musica` y anota el crédito.
 
 ## Formato de los videos (resumen; detalle en `.agents/rules/eddie-studio.md`)
 - **Formato:** vertical 1080x1920, 30 fps.

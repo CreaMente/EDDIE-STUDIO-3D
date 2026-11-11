@@ -50,6 +50,9 @@ Si la sesión se cae, vuelve a ejecutar la celda y pega la nueva configuración:
 | `actualizar_codigo`, `reiniciar_servidor` | Traer cambios de GitHub y recargar el servidor |
 | `proyecto_crear`, `proyecto_listar` | Proyectos de video en tu Drive |
 | `voz_preparar`, `voz_crear_narrador`, `voz_elegir_narrador`, `voz_generar` | Voz fija del canal y narración verificada con tiempos por palabra |
+| `mixamo_importar`, `biblioteca_listar`, `movimiento_preparar` | Personajes y animaciones Mixamo; Kimodo (texto → movimiento) |
+| `toma_crear` | Toma 3D animada (Mixamo + Kimodo) renderizada en bloques paralelos a MP4 |
+| `video_montar` | Video final: tomas alineadas a la voz, texto en pantalla, música y -14 LUFS |
 
 ## Seguridad
 - **La clave del estudio protege el túnel.** Sin ella nadie puede usar el servidor.

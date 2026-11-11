@@ -168,8 +168,10 @@ def cmd_toma(a) -> None:
     hdri = polyhaven.hdri(a.hdri, res_hdri)
     piso = polyhaven.textura(a.piso, "2k" if a.escala >= 100 else "1k")
     camara = json.loads(a.camara or "{}")
+    cuadros = config.ruta_local("cuadros", proyecto.name, slug(a.nombre))
     args = ["--animado", str(animado), "--salida", str(carpeta / "toma.mp4"), "--hdri", str(hdri),
-            "--piso", json.dumps(piso), "--motor", a.motor, "--muestras", str(a.muestras), "--escala", str(a.escala)]
+            "--piso", json.dumps(piso), "--motor", a.motor, "--muestras", str(a.muestras), "--escala", str(a.escala),
+            "--carpeta_cuadros", str(cuadros), "--bloques", str(a.bloques)]
     for clave, arg in (("angulo", "--angulo"), ("distancia", "--distancia"), ("altura", "--altura_camara"),
                        ("lente", "--lente"), ("acercamiento", "--acercamiento"), ("hdri_rotacion", "--hdri_rotacion")):
         if clave in camara:
@@ -187,10 +189,10 @@ def cmd_toma(a) -> None:
                    "codificador de texto Built with Meta Llama 3.")
     creditos.write_text("\n".join(sorted(lineas)) + "\n", encoding="utf-8")
 
-    reporte = {"ok": True, "mp4": str(carpeta / "toma.mp4"), "carpeta": str(carpeta),
+    reporte = {"ok": True, "mp4": str(carpeta / "toma.mp4"), "carpeta": str(carpeta), "cuadros_png": str(cuadros),
                "segundos_video": pasos["animacion"]["segundos"], "secuencia": secuencia,
                "render": {k: pasos["render"].get(k) for k in ("motor", "resolucion", "cuadros", "segundos_por_cuadro",
-                                                              "segundos_render", "backend", "con_audio")},
+                                                              "segundos_render", "backend", "con_audio", "bloques")},
                "segundos_total": round(time.time() - t0, 1)}
     (carpeta / "reporte.json").write_text(json.dumps(reporte, indent=1, ensure_ascii=False), encoding="utf-8")
     print("RESULTADO_JSON: " + json.dumps(reporte, ensure_ascii=False), flush=True)
@@ -215,6 +217,7 @@ def main() -> None:
     pt.add_argument("--audio", default="")
     pt.add_argument("--camara", default="")
     pt.add_argument("--mezcla", type=int, default=10)
+    pt.add_argument("--bloques", type=int, default=3)
     a = p.parse_args()
     if not config.drive_disponible():
         raise SystemExit(config.AVISO_DRIVE)
