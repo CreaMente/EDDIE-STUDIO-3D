@@ -87,6 +87,13 @@ if _claves.get("GITHUB_TOKEN"):
     pathlib.Path("~/.git-credentials").expanduser().write_text(
         f"https://x-access-token:{_claves['GITHUB_TOKEN']}@github.com\n")
     _git("config", "--global", "credential.helper", "store")
+if os.path.isdir(f"{DESTINO}/.git") and _git("status", "--porcelain", cwd=DESTINO).strip():
+    # Cambios hechos a mano en esta copia (p. ej. por Antigravity): se respaldan antes de actualizar.
+    _resp = PRIVADO / "respaldos_codigo" / time.strftime("%Y%m%d-%H%M%S")
+    _resp.mkdir(parents=True, exist_ok=True)
+    (_resp / "cambios.patch").write_text(_git("diff", "HEAD", cwd=DESTINO))
+    _git("stash", "push", "--include-untracked", "-m", f"respaldo {_resp.name}", cwd=DESTINO)
+    paso(f"Cambios locales respaldados en {_resp}/cambios.patch (y en git stash)")
 if os.path.isdir(f"{DESTINO}/.git"):
     # refspec explícito: el clon inicial es de una sola rama y sin esto otra RAMA no tiene «origin/RAMA»
     _git("fetch", "--depth", "50", "origin", f"+refs/heads/{RAMA}:refs/remotes/origin/{RAMA}", cwd=DESTINO)
