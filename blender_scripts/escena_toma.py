@@ -136,9 +136,12 @@ def suavizar(pos: dict[int, Vector], ventana: int) -> dict[int, Vector]:
 
 
 def mirada(rig, hueso_ojos: str, cam, f_ini: int, f_fin: int, modo: str) -> str:
-    """Dónde miran los ojos del personaje: «camara» (al espectador, como en los videos de historias) o
-    «frente» (hacia donde camina). Se añade una restricción al control de mirada del rig que copia la
-    posición de un objeto guía animado cuadro a cuadro (funciona sin importar cómo esté armado el rig)."""
+    """Dónde miran los ojos: «camara» (al espectador, como en los videos de historias) o «frente» (hacia donde
+    mira la cara). Una restricción en el control de mirada del rig copia la posición de un objeto guía.
+
+    Medido en GPU (Antigravity): el control de mirada de Rain/Snow no gira con la cabeza, así que una guía
+    fija (horizontal o en la cámara) dejaba los ojos en blanco al agachar o girar la cabeza. Ahora la guía
+    sale de la orientación 3D real de la cabeza en cada cuadro, y hacia la cámara gira como máximo 22°."""
     if not hueso_ojos or hueso_ojos not in rig.pose.bones or modo not in ("camara", "frente"):
         return "rig"
     esc = bpy.context.scene
@@ -146,17 +149,26 @@ def mirada(rig, hueso_ojos: str, cam, f_ini: int, f_fin: int, modo: str) -> str:
     esc.collection.objects.link(guia)
     c = rig.pose.bones[hueso_ojos].constraints.new("COPY_LOCATION")
     c.target = guia
-    cabeza = huesos_objetivo(rig, "cabeza")
+    pb_cab = huesos_objetivo(rig, "cabeza")[0]
+    reposo_inv = pb_cab.bone.matrix_local.to_3x3().inverted()
+    frente_loc = reposo_inv @ Vector((0, -1, 0))
+    arriba_loc = reposo_inv @ Vector((0, 0, 1))
+    max_giro = math.radians(22.0)
     for f in range(f_ini, f_fin + 1):
         esc.frame_set(f)
-        h = sum(((rig.matrix_world @ pb.head) for pb in cabeza), Vector()) / len(cabeza)
-        h.z += 0.08  # a la altura de los ojos
+        m_cab = (rig.matrix_world @ pb_cab.matrix).to_3x3()
+        v_frente = (m_cab @ frente_loc).normalized()
+        v_arriba = (m_cab @ arriba_loc).normalized()
+        ojos = (rig.matrix_world @ pb_cab.head) + v_arriba * 0.08 + v_frente * 0.10
         if modo == "camara":
-            guia.location = cam.matrix_world.to_translation()
+            d_cam = cam.matrix_world.to_translation() - ojos
+            dist = max(d_cam.length, 0.8)
+            v_cam = d_cam.normalized() if d_cam.length > 1e-4 else v_frente
+            ang = v_frente.angle(v_cam, 0.0)
+            v_dir = v_frente.slerp(v_cam, min(1.0, max_giro / ang)) if ang > 1e-4 else v_frente
+            guia.location = ojos + v_dir * dist
         else:
-            adelante = rig.matrix_world.to_3x3() @ Vector((0, -1, 0))
-            adelante.z = 0
-            guia.location = h + adelante.normalized() * 1.5
+            guia.location = ojos + v_frente * 1.0
         guia.keyframe_insert("location", frame=f)
     return modo
 
@@ -285,7 +297,9 @@ def main() -> None:
 
     conf_cam = json.loads(a.camara or "{}")
     cam = camara_seguimiento(rig, f_ini, f_fin, conf_cam)
-    modo_mirada = mirada(rig, a.ojos, cam, f_ini, f_fin, conf_cam.get("mirada", "camara"))
+    # cámara de lado o detrás: los ojos siguen a la cara (no se fuerzan hacia una cámara que no ve)
+    ang_norm = abs(((float(conf_cam.get("angulo", 25)) + 180.0) % 360.0) - 180.0)
+    modo_mirada = mirada(rig, a.ojos, cam, f_ini, f_fin, conf_cam.get("mirada", "frente" if ang_norm > 90 else "camara"))
 
     # Objetos con los que interactúa y escenario alrededor del recorrido (personaje + cámara).
     objetos = json.loads(a.objetos or "[]")

@@ -1,15 +1,15 @@
 {
- "_nota": "Acciones que Mixamo no tiene, generadas UNA vez con Kimodo y guardadas en la biblioteca con su nombre (se usan como cualquier animación: {\"anim\": \"temblar_frio\"}). textos en inglés, una acción simple por frase; segundos por acción (≤ 10). interaccion como en el catálogo Mixamo (varias separadas por coma). Para agregar una: añádela aquí y vuelve a ejecutar kimodo_biblioteca().",
+ "_nota": "Acciones que Mixamo no tiene, generadas UNA vez con Kimodo y guardadas en la biblioteca con su nombre (se usan como cualquier animación: {\"anim\": \"temblar_frio\"}). textos en inglés, una acción simple por frase; segundos por acción (≤ 10). interaccion como en el catálogo Mixamo (varias separadas por coma). Para agregar una: añádela aquí y vuelve a ejecutar kimodo_biblioteca(). Textos de sentado_pensar, sentado_celular, tomar_foto, tocar_puerta y levantarse_cama corregidos y verificados en GPU (hojas de contacto) por Antigravity.",
  "temblar_frio": {"textos": ["A person stands hugging themselves and shivering from the cold."], "segundos": [4], "categoria": "dolor"},
  "desmayarse": {"textos": ["A person feels dizzy and wobbles in place.", "A person faints and collapses to the ground."], "segundos": [1.5, 2.5], "categoria": "caidas"},
  "sujetar_rodilla": {"textos": ["A person sits down on the floor.", "A person holds their left knee with both hands in pain."], "segundos": [2.5, 3.5], "categoria": "dolor"},
  "dolor_cabeza": {"textos": ["A person holds their head with both hands in pain."], "segundos": [4], "categoria": "dolor"},
- "sentado_pensar": {"textos": ["A person sits on a chair with their chin resting on their right hand, thinking."], "segundos": [4], "categoria": "sentado", "interaccion": "sentado"},
+ "sentado_pensar": {"textos": ["A person sits on a chair.", "A seated person touches their chin with their right hand."], "segundos": [1.5, 2.5], "categoria": "sentado", "interaccion": "sentado"},
  "leer": {"textos": ["A person stands holding a book open with both hands and reads it."], "segundos": [4], "categoria": "objetos", "interaccion": "libro:R"},
- "sentado_celular": {"textos": ["A person sits on a chair looking down at a phone in their right hand."], "segundos": [4], "categoria": "sentado", "interaccion": "sentado,telefono:R"},
+ "sentado_celular": {"textos": ["A person sits on a chair holding a book open with both hands."], "segundos": [4], "categoria": "sentado", "interaccion": "sentado,telefono:R"},
  "mirar_reloj": {"textos": ["A person raises their left wrist and looks at their watch."], "segundos": [3], "categoria": "objetos"},
- "tomar_foto": {"textos": ["A person holds a phone up in front of their face and takes a photo."], "segundos": [3.5], "categoria": "objetos", "interaccion": "telefono:R"},
+ "tomar_foto": {"textos": ["A person raises a camera to chest height with both hands.", "A person holds the camera forward with both hands."], "segundos": [1.5, 2.0], "categoria": "objetos", "interaccion": "telefono:R"},
  "huir": {"textos": ["A person looks back over their shoulder in fear.", "A person runs forward fast."], "segundos": [1.5, 3], "categoria": "accion"},
- "tocar_puerta": {"textos": ["A person knocks on a door in front of them with their right hand."], "segundos": [3], "categoria": "objetos", "interaccion": "tocar:R"},
- "levantarse_cama": {"textos": ["A person lies on their back.", "A person sits up.", "A person stands up."], "segundos": [1.5, 2, 2], "categoria": "acostado"}
+ "tocar_puerta": {"textos": ["A person extends their right arm forward at chest height.", "A person knocks forward repeatedly with their right hand."], "segundos": [1.2, 2.0], "categoria": "objetos", "interaccion": "tocar:R"},
+ "levantarse_cama": {"textos": ["A person stands up from the floor."], "segundos": [4], "categoria": "acostado"}
 }

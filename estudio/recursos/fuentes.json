@@ -1,0 +1,78 @@
+{
+ "_nota": "Registro de fuentes. Una fuente solo se descarga si estado = «verificada» Y la verificación en vivo de su página OFICIAL de licencia encuentra todas las «frases» (o hay evidencia guardada de menos de «vigencia_dias»). «pendiente» = no se pudo leer la licencia oficial: no se descarga hasta capturarla (navegador de Antigravity o el propietario) con recursos_licencia_manual. «excluida» = no permite uso comercial o no tiene licencia clara: nunca se descarga.",
+ "vigencia_dias": 90,
+ "polyhaven": {
+  "nombre": "Poly Haven", "licencia": "CC0-1.0", "comercial": true, "credito_obligatorio": false,
+  "credito": "Poly Haven (polyhaven.com), CC0",
+  "url_licencia": "https://polyhaven.com/license", "frases": ["CC0", "commercial"],
+  "metodo": "api", "estado": "verificada", "tipos": ["hdri", "textura", "modelo"],
+  "condiciones": "API pública y gratuita; piden identificar el cliente con User-Agent."
+ },
+ "ambientcg": {
+  "nombre": "ambientCG", "licencia": "CC0-1.0", "comercial": true, "credito_obligatorio": false,
+  "credito": "ambientCG (ambientcg.com), CC0",
+  "url_licencia": "https://ambientcg.com/license", "frases": ["CC0 1.0", "commercial"],
+  "metodo": "api", "estado": "verificada", "tipos": ["material", "hdri", "decal", "atlas"],
+  "condiciones": "API pública v2 (docs.ambientcg.com). Solo recursos ya publicados (no los de acceso anticipado)."
+ },
+ "estilos100": {
+  "nombre": "100STYLE (Ian Mason)", "licencia": "CC-BY-4.0", "comercial": true, "credito_obligatorio": true,
+  "credito": "The 100STYLE Dataset - Ian Mason (CC BY 4.0)",
+  "url_licencia": "https://ianxmason.github.io/100style/", "frases": ["Creative Commons Attribution 4.0", "commercial"],
+  "zenodo": "8127870", "licencia_zenodo": "cc-by-4.0",
+  "metodo": "directo", "estado": "verificada", "tipos": ["animacion"],
+  "condiciones": "Descarga pública en Zenodo (registro 8127870)."
+ },
+ "blender_studio": {
+  "nombre": "Blender Studio (personajes)", "licencia": "CC-BY-4.0", "comercial": true, "credito_obligatorio": true,
+  "credito": "Blender Studio (studio.blender.org), CC-BY",
+  "url_licencia": "https://studio.blender.org/projects/sprite-fright/pages/about/", "frases": ["Creative Commons Attribution", "commercially"],
+  "frases_por_recurso": ["CC-BY"],
+  "metodo": "directo", "estado": "verificada", "tipos": ["personaje"],
+  "condiciones": "Solo los personajes con descarga gratuita (sin suscripción). Cada página de personaje se revisa: debe decir CC-BY."
+ },
+ "quaternius": {
+  "nombre": "Quaternius", "licencia": "CC0-1.0", "comercial": true, "credito_obligatorio": false,
+  "credito": "Quaternius (quaternius.com), CC0",
+  "url_licencia": "https://quaternius.com/faq.html", "frases": ["CC0", "commercial"],
+  "metodo": "navegador", "estado": "verificada", "tipos": ["animacion", "personaje", "modelo"],
+  "condiciones": "Las descargas están en itch.io (botón «Download», versión Standard gratuita). Las baja el navegador de Antigravity o el propietario a biblioteca/_entrada/navegador/quaternius/ y el ingestor las procesa.",
+  "paquetes": [{"nombre": "Universal Animation Library", "pagina": "https://quaternius.itch.io/universal-animation-library"},
+               {"nombre": "Universal Animation Library 2", "pagina": "https://quaternius.itch.io/universal-animation-library-2"},
+               {"nombre": "Universal Base Characters", "pagina": "https://quaternius.itch.io/universal-base-characters"}]
+ },
+ "kenney": {
+  "nombre": "Kenney", "licencia": "CC0-1.0", "comercial": true, "credito_obligatorio": false,
+  "credito": "Kenney (kenney.nl), CC0",
+  "url_licencia": "https://kenney.nl/support", "frases": ["CC0", "commercial"],
+  "metodo": "navegador", "estado": "verificada", "tipos": ["modelo"],
+  "condiciones": "El sitio rechaza clientes automáticos (403): descarga con el navegador a biblioteca/_entrada/navegador/kenney/. Estilo de juego (low-poly): úsalo solo para utilería lejana."
+ },
+ "mixamo": {
+  "nombre": "Mixamo (Adobe)", "licencia": "Adobe-Mixamo-royalty-free", "comercial": true, "credito_obligatorio": false,
+  "credito": "Mixamo (Adobe), uso libre de regalías",
+  "url_licencia": "https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html", "frases": ["royalty free"],
+  "metodo": "navegador", "estado": "pendiente", "tipos": ["animacion", "personaje"],
+  "condiciones": "Requiere cuenta Adobe. El sitio respondió 403 a la verificación automática: captura la página oficial con recursos_licencia_manual. Las animaciones ya importadas no se tocan."
+ },
+ "cmu": {"nombre": "CMU Graphics Lab Motion Capture", "licencia": "?", "url_licencia": "http://mocap.cs.cmu.edu/faqs.php",
+         "frases": ["free for all uses"], "metodo": "directo", "estado": "pendiente", "tipos": ["animacion"],
+         "condiciones": "Verificar el FAQ oficial. La conversión FBX de 4TU es CC BY-NC: excluida."},
+ "rokoko": {"nombre": "Rokoko Motion Library", "licencia": "?", "url_licencia": "https://www.rokoko.com/products/motion-library",
+            "frases": [], "metodo": "manual", "estado": "pendiente", "tipos": ["animacion"],
+            "condiciones": "Exige Rokoko Studio. Licencia por verificar."},
+ "actorcore": {"nombre": "ActorCore (Reallusion)", "licencia": "?", "url_licencia": "https://actorcore.reallusion.com/",
+               "frases": [], "metodo": "navegador", "estado": "pendiente", "tipos": ["animacion"],
+               "condiciones": "Página con JavaScript: verificar con el navegador. Contenido gratuito y de pago con licencias distintas."},
+ "polypizza": {"nombre": "Poly Pizza", "licencia": "por recurso", "url_licencia": "https://poly.pizza/",
+               "frases": [], "metodo": "api", "estado": "pendiente", "tipos": ["modelo"],
+               "condiciones": "Licencia por modelo (CC0 o CC-BY). Verificar condiciones de la API."},
+ "sketchfab": {"nombre": "Sketchfab", "licencia": "por recurso", "url_licencia": "https://sketchfab.com/developers/terms",
+               "frases": ["Creative Commons", "attribution"], "metodo": "api_clave", "estado": "pendiente", "tipos": ["modelo"],
+               "condiciones": "Etapa 3: necesita tu clave de API; se filtrará solo CC0/CC-BY por modelo y se mostrará el crédito."},
+ "lafan1": {"nombre": "Ubisoft LaFAN1", "licencia": "CC-BY-NC-ND-4.0", "estado": "excluida", "motivo": "No comercial."},
+ "amass": {"nombre": "AMASS / HumanML3D", "licencia": "no comercial", "estado": "excluida", "motivo": "Solo investigación no comercial."},
+ "motionx": {"nombre": "Motion-X", "licencia": "no comercial", "estado": "excluida", "motivo": "Solo investigación no comercial."},
+ "objaverse": {"nombre": "Objaverse", "licencia": "mixta", "estado": "excluida", "motivo": "Licencias mixtas por objeto (muchas NC) y disputa de autoría."},
+ "cmu_4tu": {"nombre": "CMU convertido a FBX (4TU)", "licencia": "CC-BY-NC", "estado": "excluida", "motivo": "No comercial."}
+}

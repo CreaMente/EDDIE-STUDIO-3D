@@ -569,17 +569,22 @@ def biblioteca_listar() -> dict:
         animaciones.append({"clave": clave, "mixamo": None, "origen": "kimodo", "segundos": k.get("segundos"),
                             "en_lugar": False, "categoria": k.get("categoria"), "interaccion": k.get("interaccion")})
 
+    from estudio.recursos.convertir import catalogo_estilos
+    estilos = sorted(catalogo_estilos())  # 100STYLE convertidos: solo las claves (son cientos)
+
     reparto = [{"nombre": n, "titulo": f["titulo"], "cara": "cara" in f,
                 "descargado": (elenco.carpeta(n) / ".completo").exists(), "credito": f["credito"]}
                for n, f in elenco.fichas().items()]
     catalogo_obj = json.loads((config.REPO / "estudio" / "objetos.json").read_text(encoding="utf-8"))
     escenarios = json.loads((config.REPO / "estudio" / "escenarios.json").read_text(encoding="utf-8"))
-    return {"elenco": reparto, "personajes": personajes, "animaciones": animaciones,
+    return {"elenco": reparto, "personajes": personajes, "animaciones": animaciones, "estilos": estilos,
             "objetos": sorted(k for k in catalogo_obj if not k.startswith("_")),
             "escenarios": sorted(k for k in escenarios if not k.startswith("_")),
             "nota": "elenco = protagonistas con cara animable (labios, expresiones): úsalos en las tomas con "
-                    "personas. personajes = esqueletos Mixamo (remy) que sirven de base. Acciones que no estén "
-                    "aquí: usa {\"kimodo\": \"descripción en inglés\"} en la secuencia."}
+                    "personas. personajes = esqueletos Mixamo (remy) que sirven de base. estilos = formas de caminar/"
+                    "estar de 100STYLE ({\"anim\": \"estilo_viejo_caminar\", \"avance\": true}). Acciones que no estén "
+                    "aquí: usa {\"kimodo\": \"descripción en inglés\"} en la secuencia. Modelos, texturas y HDRI "
+                    "descargados: recursos_buscar."}
 
 
 @mcp.tool
@@ -593,6 +598,118 @@ def kimodo_biblioteca(nombre: str = "", forzar: bool = False) -> dict:
         return {"error": config.AVISO_DRIVE}
     args = ["kimodo_biblioteca"] + (["--nombre", nombre] if nombre else []) + (["--forzar"] if forzar else [])
     return _trabajo_estudio(args, "kimodo: biblioteca")
+
+
+# ───────────────────────── recursos automáticos (catálogo + licencias + descargas) ─────────────────────────
+
+def _trabajo_recursos(args: list[str], nombre: str) -> dict:
+    if not config.drive_disponible():
+        return {"error": config.AVISO_DRIVE}
+    return trabajos.iniciar(shlex.join([sys.executable, "-m", "estudio.recursos.adquirir", *args]), nombre,
+                            str(config.REPO), entorno={"PYTHONPATH": _entorno()["PYTHONPATH"]})
+
+
+@mcp.tool
+def recursos_fuentes() -> dict:
+    """Fuentes de recursos 3D: licencia, si está verificada en su página oficial, método de descarga
+    (api/directo = automático; navegador = lo bajas tú o el navegador de Antigravity a
+    biblioteca/_entrada/navegador/<fuente>/) y por qué se excluyen las no comerciales."""
+    from estudio.recursos import licencias
+    return {"fuentes": licencias.resumen(),
+            "regla": "Sin evidencia de la licencia oficial (URL + fecha + hash) no se descarga nada para uso comercial."}
+
+
+@mcp.tool
+def recursos_verificar(fuentes: str = "") -> dict:
+    """Vuelve a leer las páginas OFICIALES de licencia y guarda la evidencia (vacío = todas). Devuelve un id."""
+    return _trabajo_recursos(["verificar"] + (["--fuentes", fuentes] if fuentes else []), "recursos: licencias")
+
+
+@mcp.tool
+def recursos_estimar(fuentes: str = "", perfil: str = "produccion") -> dict:
+    """Cuántos recursos hay y cuánto ocuparían en Drive, sin bajar nada. perfil: produccion (lo que usan las
+    tomas: HDRI 2k+4k, texturas 1k+2k, modelos 1k, materiales 2K), ligero o alta. Devuelve un id."""
+    return _trabajo_recursos(["estimar", "--perfil", perfil, "--hilos", "12"] + (["--fuentes", fuentes] if fuentes else []),
+                             "recursos: estimar")
+
+
+@mcp.tool
+def recursos_descargar(fuentes: str = "", tipos: str = "", perfil: str = "produccion", limite_gb: float = 330.0,
+                       maximo: int = 0, hilos: int = 6) -> dict:
+    """Descarga a Drive TODO lo de las fuentes automáticas verificadas (polyhaven, ambientcg, estilos100,
+    blender_studio; vacío = todas), lo valida y lo deja listo para las tomas. Reanudable: si se corta o se
+    cierra Colab, llámala otra vez y sigue donde quedó (no repite ni sobrescribe nada). Se detiene sola al
+    llegar a limite_gb o si Drive queda con menos de 5 GB. maximo = recursos por fuente (0 = todos; usa 3
+    para una prueba). Tarda horas: revisa con trabajo_estado y recursos_estado. Devuelve un id."""
+    args = ["descargar", "--perfil", perfil, "--limite_gb", str(limite_gb), "--hilos", str(hilos)]
+    args += (["--fuentes", fuentes] if fuentes else []) + (["--tipos", tipos] if tipos else [])
+    args += ["--max", str(maximo)] if maximo else []
+    return _trabajo_recursos(args, "recursos: descargar")
+
+
+@mcp.tool
+def recursos_estado() -> dict:
+    """Resumen del catálogo: por fuente, tipo y estado (descubierto / descargado / aprobado / error), GB en
+    Drive y estado de las licencias."""
+    if not config.drive_disponible():
+        return {"error": config.AVISO_DRIVE}
+    from estudio.recursos import catalogo, licencias
+    from estudio.recursos.descargas import libre_gb
+    try:
+        return {"catalogo": catalogo.resumen(), "licencias": licencias.resumen(), "drive_libre_gb": libre_gb(config.DRIVE)}
+    finally:
+        catalogo.cerrar()
+
+
+@mcp.tool
+def recursos_buscar(texto: str, tipo: str = "", fuente: str = "", limite: int = 30) -> dict:
+    """Busca en la biblioteca descargada por palabras (en inglés: «wooden chair», «brick», «sunset»,
+    «old walk»). tipo: hdri, textura, modelo, material, animacion, personaje, paquete. Cada resultado trae
+    la «clave» que se usa en las tomas: modelo → «objeto», textura/material → «pared»/«piso»,
+    hdri → «hdri», animacion → «anim»."""
+    if not config.drive_disponible():
+        return {"error": config.AVISO_DRIVE}
+    from estudio.recursos import catalogo
+    try:
+        filas = catalogo.buscar(texto, tipo, fuente, "descargado,aprobado", limite)
+        return {"resultados": [{k: r[k] for k in ("tipo", "fuente", "clave", "nombre", "estado", "categorias", "credito")}
+                               for r in filas]}
+    finally:
+        catalogo.cerrar()
+
+
+@mcp.tool
+def recursos_ingresar() -> dict:
+    """Procesa lo que el navegador dejó en biblioteca/_entrada/navegador/<fuente>/ (zip, fbx, glb, blend,
+    bvh): verifica la licencia, evita repetidos (SHA-256), lo extrae a biblioteca/paquetes/ y lo cataloga.
+    Lo dudoso va a _entrada/_revision/ con el motivo. Devuelve un id."""
+    return _trabajo_recursos(["ingresar"], "recursos: ingresar")
+
+
+@mcp.tool
+def estilos_convertir(estilos: str = "", tipos: str = "ID,FW,FR,BW,SW", hilos: int = 6, forzar: bool = False) -> dict:
+    """Convierte 100STYLE (100 estilos de caminar/estar actuados: viejo, zombi, borracho, deprimido,
+    orgulloso, cojear…) al esqueleto del estudio. Quedan como animaciones con nombre
+    («estilo_viejo_caminar», «estilo_deprimido_quieto»…) para {"anim": …}; «avance: true» usa la velocidad
+    real del actor. Vacío = todos (baja el dataset si falta). tipos: ID quieto, FW caminar, FR correr,
+    BW caminar_atras, SW caminar_lado (también BR, SR). Devuelve un id."""
+    args = ["convertir", "--tipos", tipos, "--hilos", str(hilos)] + (["--estilos", estilos] if estilos else [])
+    return _trabajo_recursos(args + (["--forzar"] if forzar else []), "recursos: convertir estilos")
+
+
+@mcp.tool
+def recursos_licencia_manual(fuente: str, url: str, texto: str) -> dict:
+    """Guarda la evidencia de una licencia que no se puede leer de forma automática (página con login o que
+    rechaza bots, p. ej. Mixamo). url = la página OFICIAL registrada en fuentes.json; texto = el texto de la
+    página copiado tal cual (por el navegador de Antigravity o el propietario). Se acepta solo si contiene las
+    frases de licencia registradas. No sirve para fuentes excluidas."""
+    if not config.drive_disponible():
+        return {"error": config.AVISO_DRIVE}
+    from estudio.recursos import licencias
+    try:
+        return licencias.guardar_manual(fuente, url, licencias.texto_plano(texto), "antigravity")
+    except SystemExit as e:
+        return {"ok": False, "error": str(e)}
 
 
 @mcp.tool

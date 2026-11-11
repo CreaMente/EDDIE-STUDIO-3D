@@ -1,0 +1,17 @@
+{
+ "_nota": "Esqueleto de 100STYLE (BVH en centímetros, Y arriba, 60 cuadros/s) → esqueleto Mixamo. Chest3 no tiene par: su giro llega igual porque se copian rotaciones en el mundo. No trae dedos: se copia una pose de manos relajadas de la biblioteca Mixamo. Las muñecas (Wrist) no se copian: en los datos la derecha llega a 59° parada sin motivo (ruido de captura); la mano sigue al antebrazo. «calibrar»: la pose cero del BVH tiene cuello y cabeza ~45° inclinados; se usa como reposo la postura natural del actor (Neutral_ID).",
+ "escala": 0.01,
+ "adelante": "-Z",
+ "arriba": "Y",
+ "contacto_escalado": true,
+ "calibrar": ["Chest", "Chest2", "Chest3", "Chest4", "Neck", "Head"],
+ "calibracion": "Neutral_ID",
+ "huesos": {
+  "Hips": "Hips", "Chest": "Spine", "Chest2": "Spine1", "Chest4": "Spine2", "Neck": "Neck", "Head": "Head",
+  "LeftCollar": "LeftShoulder", "LeftShoulder": "LeftArm", "LeftElbow": "LeftForeArm",
+  "RightCollar": "RightShoulder", "RightShoulder": "RightArm", "RightElbow": "RightForeArm",
+  "LeftHip": "LeftUpLeg", "LeftKnee": "LeftLeg", "LeftAnkle": "LeftFoot", "LeftToe": "LeftToeBase",
+  "RightHip": "RightUpLeg", "RightKnee": "RightLeg", "RightAnkle": "RightFoot", "RightToe": "RightToeBase"
+ },
+ "contacto": ["Hips", "LeftKnee", "RightKnee", "LeftAnkle", "RightAnkle", "LeftToe", "RightToe", "LeftWrist", "RightWrist"]
+}

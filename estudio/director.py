@@ -19,7 +19,8 @@ Formato del guion técnico (JSON):
     {"nombre": "t01", "frase": 0,       ← entra cuando empieza la frase 0 («palabra»: i / «inicio_s»: t)
      "secuencia": [{"anim": "caminar", "segundos": 2, "avance": true}, {"anim": "abrir_puerta"}],
      "camara": {"plano": "general", "angulo": 110, "movimiento": "lateral"},
-     "expresion": "miedo", "habla": false},
+     "expresion": "miedo", "habla": false,
+     "desde_s": 0.9},                   ← (opcional) salta el inicio de la acción: la toma entra ya en movimiento
     …
   ],
   "textos": [{"texto": "DÍA 3", "frase": 4}], "musica": "", "fundido": 0
@@ -100,7 +101,7 @@ def main() -> None:
     for k, t in enumerate(tomas):
         nombre = slug(t.get("nombre") or f"t{k + 1:02d}")
         fin = inicios[k + 1] if k + 1 < len(tomas) else fin_voz
-        duracion = round(fin - inicios[k] + MARGEN_S, 2)
+        duracion = round(fin - inicios[k] + float(t.get("desde_s", 0)) + MARGEN_S, 2)
         desde_voz = max(0.0, inicios[k] - 0.07)  # como el corte del montaje
         personaje = t.get("personaje", guion.get("personaje", "remy"))
         escenario = t.get("escenario", guion.get("escenario", "estudio"))
@@ -137,7 +138,7 @@ def main() -> None:
     plan = []
     for k, t in enumerate(tomas):
         e = {"toma": slug(t.get("nombre") or f"t{k + 1:02d}")}
-        for clave in ("frase", "palabra", "inicio_s"):
+        for clave in ("frase", "palabra", "inicio_s", "desde_s"):
             if clave in t:
                 e[clave] = t[clave]
         if k and len(e) == 1:

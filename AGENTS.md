@@ -61,7 +61,7 @@ El estudio se expone como servidor MCP `eddie-studio` por un túnel **temporal**
 | 2. Voz y tiempos (VoxCPM2 + Whisper) | **Completa en GPU.** Narrador fijo `narrador` (candidata 2). Prueba: guion de 61 palabras → 18.98 s de voz en 31.5 s, 0 % de error, 61/61 palabras alineadas, 3.21 pal/s |
 | 3. Director de escena y animación | **Funciona en GPU** con Remy. **Nuevo (probado en CPU, falta GPU):** elenco Blender Studio con cara (rain, snow): movimiento transferido al rig (error ≤ 6°), labios por visemas del español, expresiones y parpadeo; planos estilo historia y look |
 | 4. Render por bloques y montaje | **Completa en GPU.** `bloques=3` (lo óptimo; 5 no mejora): 1080x1920 a 128 muestras en 0.85 s/cuadro (antes 1.56). Primer video completo (`20261111-1308-rodilla-rota-sin-medico`, 17.4 s, 4 tomas): tomas finales + montaje en 10 min 47 s, -14.04 LUFS |
-| 5. Recursos automáticos (APIs + IA 3D) | Pendiente |
+| 5. Recursos automáticos (APIs + IA 3D) | **Construida, probada en CPU; falta la descarga completa en Colab.** Catálogo + compuerta de licencias oficiales + descargas reanudables. Poly Haven, ambientCG, 100STYLE y Blender Studio automáticos (~117 GB en perfil producción); Quaternius/Kenney por navegador + ingestor. 100STYLE → animaciones de estilo validadas en Remy |
 | 6. Look y estilo | Pendiente |
 | 7. Robustez | Pendiente |
 
@@ -167,6 +167,37 @@ No finjas un video terminado.
 - **Escenario:** `hdri` y `piso` son ids de Poly Haven. Se descargan solos y quedan en Drive.
 - **Créditos:** se escriben solos en `proyectos/<id>/CREDITOS.txt`.
 
+## Recursos automáticos (biblioteca grande en Drive)
+Regla: **solo fuentes con la licencia OFICIAL verificada** (URL + fecha + hash guardados en
+`biblioteca/licencias/evidencias/`). Las no comerciales (LaFAN1, AMASS, Motion-X, Objaverse…) están excluidas y
+no se pueden habilitar. Nunca se sobrescribe ni se borra nada: todo es reanudable.
+1. `recursos_fuentes()` → qué fuentes hay, su licencia y método. `recursos_verificar()` relee las licencias.
+2. **Descarga completa** (una vez, tarda horas): `recursos_descargar()` → trabajo. Revisa con `trabajo_estado`
+   y `recursos_estado`. Si se corta o se cierra Colab, vuelve a llamarla: sigue donde quedó.
+   - Perfil `produccion` (el que usan las tomas): Poly Haven ~47 GB (997 HDRI, 869 texturas, 521 modelos),
+     ambientCG ~64 GB (2041 materiales, 437 HDRI, calcomanías, atlas), 100STYLE 3.4 GB, Blender Studio ~2.4 GB
+     (21 personajes con rig gratuitos). Total **~117 GB**; `limite_gb=330` por defecto.
+   - Para probar antes: `recursos_descargar(maximo=3)`.
+3. **Animaciones de estilo**: `estilos_convertir()` → 100 estilos × quieto/caminar/correr/atrás/de lado, adaptados
+   a remy y validados (saltos de rotación, cadera). Claves en `biblioteca_listar()["estilos"]`:
+   `{"anim": "estilo_viejo_caminar", "segundos": 3, "avance": true}` (avanza a la velocidad real del actor),
+   `estilo_deprimido_quieto`, `estilo_borracho_caminar`, `estilo_cojear_izq_caminar`, `estilo_zombi_caminar`,
+   `estilo_a_oscuras_caminar`, `estilo_apurado_correr`, `estilo_orgulloso_caminar`, `estilo_celular_der_caminar`…
+   Son actuación real (no cambian velocidad). No traen dedos ni muñecas: manos relajadas. Revisa cada estilo
+   nuevo con una hoja de contacto antes de usarlo en un video.
+4. **Usar lo descargado** (`recursos_buscar("wooden chair", tipo="modelo")` da la clave):
+   - modelo de Poly Haven como objeto o mueble: `"objeto": "Camera_01"`, `"muebles": ["ArmChair_01", …]`;
+   - materiales de ambientCG en paredes/piso: `{"tipo": "habitacion", "pared": "Bricks076", "piso": "WoodFloor051"}`;
+   - HDRI: `hdri="sunflowers_puresky"` (Poly Haven) o `"acg:DaySkyHDRI072B"` (ambientCG).
+   Si algo pedido aún no está en Drive, se baja en ese momento. Los créditos se escriben solos.
+5. **Sitios con login o que rechazan bots** (Quaternius en itch.io, Kenney, Mixamo): los bajas con tu navegador
+   (el propietario inicia sesión; tú no escribes contraseñas) a `biblioteca/_entrada/navegador/<fuente>/` y luego
+   `recursos_ingresar()`: verifica la licencia, evita repetidos y lo deja en `biblioteca/paquetes/<fuente>/`.
+   Fuentes **pendientes** (Mixamo para descargas nuevas, CMU, Rokoko, ActorCore, Poly Pizza, Sketchfab): abre su
+   página oficial de licencia con el navegador y guárdala con `recursos_licencia_manual(fuente, url, texto)`.
+6. Personajes nuevos de Blender Studio (Victoria, Phil, Rex, Jay, Einar, Spring…) quedan descargados pero
+   **no actúan todavía**: cada uno necesita su ficha calibrada (sus huesos se llaman distinto que Rain/Snow).
+
 ## Cualquier historia → video (el director)
 Cuando el propietario pida una historia («¿Qué pasaría si…?» o la que sea), hazla así:
 1. **Guion** con las reglas del formato (gancho, «tú», escalada en el tiempo, mecanismo real, giro) y datos
@@ -178,6 +209,12 @@ Cuando el propietario pida una historia («¿Qué pasaría si…?» o la que sea
    - Acciones con objetos: usa las animaciones con interacción (`abrir_puerta`, `recoger_objeto`, `beber`,
      `mensajear_celular`, `sentarse`, `cerrar_puerta`, `tocar_puerta`, `levantar_caja`…): el objeto se
      coloca y se mueve solo. Para pedir otro objeto: `"objeto": "taza"` en el tramo.
+     Medido en GPU: `beber` bebe con la mano **izquierda** (la taza va sola a esa mano); `telefono`, `taza` y
+     `libro` traen un `desfase` calibrado para quedar en los dedos (ajústalo por tramo con
+     `"objeto": {"tipo": "taza", "desfase": [x, y, z], "escala": 1.2}`).
+   - `"desde_s": 0.9` en una toma del guion técnico salta el inicio de la acción (la toma entra ya en movimiento).
+   - Mirada: con cámara de frente los ojos buscan la cámara (máx. 22° respecto de la cara); con cámara de lado o
+     detrás (`angulo` > 90) siguen a la cara. Así no quedan en blanco al agachar la cabeza.
    - Continuidad: mismo personaje, misma ropa, mismo escenario dentro de una escena; la acción de una toma
      continúa en la siguiente (si sale por la puerta, la toma siguiente empieza del otro lado).
 3. `video_producir(proyecto, guion_tecnico, calidad="borrador")` → trabajo. Al terminar mira el video con

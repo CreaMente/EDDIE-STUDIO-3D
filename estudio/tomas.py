@@ -34,6 +34,7 @@ import unicodedata
 from pathlib import Path
 
 from . import blender, config, elenco, entornos, polyhaven
+from .recursos import biblioteca as recursos_bib
 
 
 def log(msg: str) -> None:
@@ -81,6 +82,12 @@ def catalogo_kimodo() -> dict:
     """Acciones de la biblioteca Kimodo ya generadas: {clave: {segundos, categoria, interaccion, blend}}."""
     ruta = config.ruta_drive("biblioteca", "animaciones", "kimodo", "kimodo.json")
     return json.loads(ruta.read_text(encoding="utf-8")) if ruta.exists() else {}
+
+
+def catalogo_extra() -> dict:
+    """Acciones con nombre fuera de mixamo.blend: Kimodo + estilos 100STYLE. {clave: {blend, …}}."""
+    from .recursos.convertir import catalogo_estilos
+    return {**catalogo_estilos(), **catalogo_kimodo()}
 
 
 def cmd_kimodo_biblioteca(a) -> None:
@@ -144,7 +151,8 @@ def cmd_mixamo(a) -> None:
                                             "--indice", indices, "--correcciones",
                                             str(Path(__file__).resolve().parent / "mixamo_correcciones.json")]),
                    f"{len(fbxs)} animaciones")
-        hechos["animaciones"] = {"total": r["animaciones"], "errores": r["errores"], "claves": r["claves"]}
+        hechos["animaciones"] = {"total": r["animaciones"], "omitidas": r.get("omitidas", []), "errores": r["errores"],
+                                 "claves": r["claves"]}
     print("RESULTADO_JSON: " + json.dumps({"ok": True, **hechos}, ensure_ascii=False), flush=True)
 
 
@@ -175,7 +183,7 @@ INTERACCIONES = {"puerta": ("puerta", "puerta"), "tocar": ("tocar", "puerta"), "
 
 # Para animaciones importadas antes de que el catálogo guardara la interacción (primera tanda).
 INTERACCION_POR_CLAVE = {"abrir_puerta": "puerta:R", "cerrar_puerta": "puerta:R", "tocar_puerta": "tocar:R",
-                         "recoger_objeto": "agarrar:R", "beber": "taza:R", "mensajear_celular": "telefono:R",
+                         "recoger_objeto": "agarrar:R", "beber": "taza:L", "mensajear_celular": "telefono:R",
                          "hablar_telefono": "telefono:R", "sentarse": "sentarse", "sentado_reposo": "sentado",
                          "levantarse_silla": "sentado", "dejar_objeto": "soltar:R", "lanzar": "lanzar:R",
                          "presionar_boton": "boton:R", "levantar_caja": "agarrar:R:caja", "cargar_caja": "caja",
@@ -185,12 +193,14 @@ INTERACCION_POR_CLAVE = {"abrir_puerta": "puerta:R", "cerrar_puerta": "puerta:R"
 def resolver_objeto(tipo: str) -> dict:
     """Tipo del catálogo → cómo construirlo en Blender (procedural o glTF de Poly Haven ya descargado)."""
     cat = json.loads(CATALOGO_OBJETOS.read_text(encoding="utf-8"))
+    if tipo not in cat and recursos_bib.es_modelo_polyhaven(tipo):
+        cat[tipo] = {"polyhaven": tipo.removeprefix("ph:")}  # cualquier modelo de la biblioteca Poly Haven
     if tipo not in cat:
         raise SystemExit(f"Objeto «{tipo}» no está en el catálogo. Opciones: {sorted(k for k in cat if k[0] != '_')}")
     d = dict(cat[tipo])
     d["tipo"] = tipo
     if "polyhaven" in d:
-        d["ruta"] = polyhaven.modelo(d["polyhaven"])
+        d["ruta"] = recursos_bib.modelo(d["polyhaven"])
     return d
 
 
@@ -232,8 +242,22 @@ def interacciones_de(secuencia: list, tramos: list) -> list[dict]:
             continue
         d = resolver_objeto(obj) if tipo_int not in ("puerta", "tocar", "boton") else {"tipo": obj}
         d.update({"interaccion": tipo_int, "mano": mano or "R", "desde": tramo["inicio"], "hasta": tramo["fin"]})
+        if isinstance(pedido, dict):
+            d.update({k: pedido[k] for k in ("desfase", "escala") if k in pedido})
         salida.append(d)
-    return salida
+    # Tramos seguidos con la misma interacción (sentarse → sentado → levantarse; o el mismo objeto en la
+    # mano) son UN solo objeto que dura todo el tiempo, no uno por tramo (medido: sillas duplicadas).
+    fusionadas = []
+    for d in salida:
+        previa = fusionadas[-1] if fusionadas else None
+        if (previa and d["interaccion"] in ("sentarse", "mano") and previa["interaccion"] == d["interaccion"]
+                and previa.get("tipo") == d.get("tipo") and previa.get("mano") == d.get("mano")
+                and d["desde"] <= previa["hasta"] + 25):
+            previa["hasta"] = max(previa["hasta"], d["hasta"])
+            previa.update({k: d[k] for k in ("desfase", "escala") if k in d})
+        else:
+            fusionadas.append(d)
+    return fusionadas
 
 
 def resolver_escenario(pedido: str, escala: int) -> dict:
@@ -246,7 +270,7 @@ def resolver_escenario(pedido: str, escala: int) -> dict:
         raise SystemExit(f"Escenario «{tipo}» desconocido. Opciones: {sorted(k for k in tipos if k[0] != '_')}")
     completo = {**tipos[tipo], **conf}
     res = "2k" if escala >= 100 else "1k"
-    completo["texturas"] = {k: polyhaven.textura(completo[k], res) for k in ("pared", "piso") if completo.get(k)}
+    completo["texturas"] = {k: recursos_bib.textura(completo[k], res) for k in ("pared", "piso") if completo.get(k)}
     rutas = {}
     for m in completo.get("muebles", []):
         try:
@@ -314,8 +338,11 @@ def cmd_toma(a) -> None:
                          f"({personaje}). Usa mixamo_importar o biblioteca_listar.")
     secuencia = json.loads(a.secuencia)
     bibliotecas = [str(biblioteca_mixamo())]
-    kim = catalogo_kimodo()  # acciones de la biblioteca Kimodo que pide esta toma
+    kim = catalogo_extra()  # acciones de la biblioteca Kimodo y de estilos (100STYLE) que pide esta toma
     bibliotecas += sorted({kim[c["anim"]]["blend"] for c in secuencia if c.get("anim") in kim})
+    for c in secuencia:  # «avance: true» en un estilo → la velocidad real del actor
+        if c.get("avance") is True and kim.get(c.get("anim"), {}).get("velocidad_m_s"):
+            c["avance"] = max(0.1, float(kim[c["anim"]]["velocidad_m_s"]))
     pasos = {}
 
     # 1. Acciones generadas con Kimodo (o BVH dados) → adaptadas al personaje → acciones con nombre.
@@ -379,8 +406,8 @@ def cmd_toma(a) -> None:
     objetos = interacciones_de(secuencia, pasos["animacion"]["tramos"]) + json.loads(a.objetos or "[]")
     nombre_hdri = a.hdri or escenario.get("hdri") or "brown_photostudio_02"
     res_hdri = "4k" if a.escala >= 100 else "2k"
-    hdri = polyhaven.hdri(nombre_hdri, res_hdri)
-    piso = polyhaven.textura(a.piso, "2k" if a.escala >= 100 else "1k")
+    hdri = recursos_bib.hdri(nombre_hdri, res_hdri)
+    piso = recursos_bib.textura(a.piso, "2k" if a.escala >= 100 else "1k")
     cuadros = config.ruta_local("cuadros", proyecto.name, slug(a.nombre))
     args = ["--animado", str(animado), "--salida", str(carpeta / "toma.mp4"), "--hdri", str(hdri),
             "--piso", json.dumps(piso), "--motor", a.motor, "--muestras", str(a.muestras), "--escala", str(a.escala),
@@ -404,6 +431,9 @@ def cmd_toma(a) -> None:
         lineas.add(f"Personaje: {ficha['credito']} — licencia CC-BY 4.0 (creativecommons.org/licenses/by/4.0).")
     else:
         lineas.add("Personajes: Mixamo (Adobe), uso libre de regalías.")
+    lineas |= {c for c in recursos_bib.creditos() if "Poly Haven" not in c}  # Poly Haven ya va arriba
+    if any(kim.get(c.get("anim"), {}).get("origen") == "100style" for c in secuencia):
+        lineas.add("Animaciones de estilo: The 100STYLE Dataset - Ian Mason (CC BY 4.0).")
     if any(k.startswith("kimodo_") for k in pasos):
         lineas.add("Animación generada con NVIDIA Kimodo (NVIDIA Open Model License); "
                    "codificador de texto Built with Meta Llama 3.")

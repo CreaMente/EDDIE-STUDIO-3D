@@ -1,5 +1,5 @@
 {
- "_nota": "Correcciones a animaciones ya descargadas cuya búsqueda trajo otra cosa. null = no importar; un objeto = cambia nombre, categoría o interacción.",
+ "_nota": "Correcciones a animaciones ya descargadas cuya búsqueda trajo otra cosa. null = no importar; un objeto = cambia nombre, categoría o interacción. La primera tanda (30, sin índice) se nombra aquí. Drinking.fbx bebe con la mano IZQUIERDA (medido en GPU).",
  "Treading Water.fbx": null,
  "Holding Down.fbx": {
   "nombre": "sujetar_abajo",
@@ -34,5 +34,140 @@
  "Stomach Hit.fbx": {
   "nombre": "golpe_estomago",
   "categoria": "dolor"
+ },
+ "Idle.fbx": {
+  "nombre": "parado_reposo",
+  "categoria": "reposo"
+ },
+ "Walking.fbx": {
+  "nombre": "caminar",
+  "categoria": "locomocion",
+  "en_lugar": true
+ },
+ "Running.fbx": {
+  "nombre": "correr",
+  "categoria": "locomocion",
+  "en_lugar": true
+ },
+ "Sitting Idle.fbx": {
+  "nombre": "sentado_reposo",
+  "categoria": "sentado",
+  "interaccion": "sentado"
+ },
+ "Stand To Sit.fbx": {
+  "nombre": "sentarse",
+  "categoria": "sentado",
+  "interaccion": "sentarse"
+ },
+ "Sit To Stand.fbx": {
+  "nombre": "levantarse_silla",
+  "categoria": "sentado",
+  "interaccion": "sentado"
+ },
+ "Standing Up.fbx": {
+  "nombre": "levantarse_piso",
+  "categoria": "caidas"
+ },
+ "Turning.fbx": {
+  "nombre": "girar",
+  "categoria": "locomocion"
+ },
+ "Injured Walk.fbx": {
+  "nombre": "caminar_herido",
+  "categoria": "dolor",
+  "en_lugar": true
+ },
+ "Injured Idle.fbx": {
+  "nombre": "herido_reposo",
+  "categoria": "dolor"
+ },
+ "Jogging Stumble.fbx": {
+  "nombre": "tropezar",
+  "categoria": "caidas"
+ },
+ "Falling.fbx": {
+  "nombre": "caer",
+  "categoria": "caidas"
+ },
+ "Fall Flat.fbx": {
+  "nombre": "caer_de_frente",
+  "categoria": "caidas"
+ },
+ "Getting Up.fbx": {
+  "nombre": "levantarse_caido",
+  "categoria": "caidas"
+ },
+ "Talking.fbx": {
+  "nombre": "hablar",
+  "categoria": "conversacion"
+ },
+ "Surprised.fbx": {
+  "nombre": "sorpresa",
+  "categoria": "emociones"
+ },
+ "Scared.fbx": {
+  "nombre": "miedo",
+  "categoria": "emociones"
+ },
+ "Crying.fbx": {
+  "nombre": "llorar",
+  "categoria": "emociones"
+ },
+ "Sad Idle.fbx": {
+  "nombre": "triste",
+  "categoria": "emociones"
+ },
+ "Nervously Look Around.fbx": {
+  "nombre": "nervioso",
+  "categoria": "emociones"
+ },
+ "Thinking.fbx": {
+  "nombre": "pensar",
+  "categoria": "conversacion"
+ },
+ "Shrugging.fbx": {
+  "nombre": "encogerse_hombros",
+  "categoria": "conversacion"
+ },
+ "Pointing.fbx": {
+  "nombre": "senalar",
+  "categoria": "conversacion"
+ },
+ "Drinking.fbx": {
+  "nombre": "beber",
+  "categoria": "objetos",
+  "interaccion": "taza:L"
+ },
+ "Texting.fbx": {
+  "nombre": "mensajear_celular",
+  "categoria": "objetos",
+  "interaccion": "telefono:R"
+ },
+ "Sleeping Idle.fbx": {
+  "nombre": "dormir",
+  "categoria": "acostado"
+ },
+ "Yawn.fbx": {
+  "nombre": "bostezar",
+  "categoria": "reposo"
+ },
+ "Neck Stretching.fbx": {
+  "nombre": "estirarse",
+  "categoria": "reposo"
+ },
+ "Opening Door Inwards.fbx": {
+  "nombre": "abrir_puerta",
+  "categoria": "objetos",
+  "interaccion": "puerta:R"
+ },
+ "Picking Up.fbx": {
+  "nombre": "recoger_objeto",
+  "categoria": "objetos",
+  "interaccion": "agarrar:R"
+ },
+ "Sitting Drinking.fbx": {
+  "nombre": "sentado_beber",
+  "categoria": "sentado",
+  "interaccion": "sentado,taza:R"
  }
 }

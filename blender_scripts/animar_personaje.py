@@ -3,6 +3,9 @@
 Uso:
   blender -b --factory-startup -P animar_personaje.py -- --personaje personaje.blend --bvh mov.bvh \
       --salida animado.blend [--hoja hoja.png --cuadros 8]
+  Otros esqueletos (100STYLE, …) y varias acciones en un archivo:
+      … --bvh a.bvh,b.bvh --accion clave_a,clave_b --mapa estudio/esqueletos/estilos100.json \
+        [--dedos_de mixamo.blend:parado_reposo]
 
 Método (retargeting por rotaciones en el mundo, independiente de la pose de reposo):
   1. El BVH está en T-pose; el personaje puede estar en T o en A. Para brazos y piernas se calcula su
@@ -75,23 +78,127 @@ def main() -> None:
     p.add_argument("--hoja", default="")
     p.add_argument("--cuadros", type=int, default=8)
     p.add_argument("--accion", default="", help="nombre para la acción resultante (para usarla en una secuencia)")
+    p.add_argument("--mapa", default="", help="JSON del esqueleto de origen (huesos, contacto, escala); vacío = SOMA/Kimodo")
+    p.add_argument("--dedos_de", default="", help="blend:acción de la que copiar la pose de los dedos (si el BVH no trae)")
+    p.add_argument("--calibracion", default="", help="BVH del actor parado en postura natural (para el «reposo» "
+                                                       "de columna, cuello y cabeza; ver «calibrar» en el mapa)")
     a = p.parse_args(comun.argumentos())
     t0 = time.time()
 
     bpy.ops.wm.open_mainfile(filepath=a.personaje)
     esc = bpy.context.scene
     destino = next(o for o in esc.objects if o.type == "ARMATURE")
+    mapa, contacto, escala_bvh, opciones = MAPA, CONTACTO, 0.01, {}
+    if a.mapa:
+        import json
+        opciones = json.loads(open(a.mapa, encoding="utf-8").read())
+        mapa, contacto = opciones["huesos"], set(opciones.get("contacto", []))
+        escala_bvh = float(opciones.get("escala", 0.01))
+    dedos = pose_dedos(a.dedos_de, destino) if a.dedos_de else {}
+    if a.calibracion and opciones.get("calibrar"):
+        opciones["_calibracion"] = postura_natural(a.calibracion, opciones["calibrar"], escala_bvh, opciones)
+    bvhs = [x for x in a.bvh.split(",") if x]
+    nombres = [x for x in a.accion.split(",")] if a.accion else [""] * len(bvhs)
+    if len(nombres) != len(bvhs):
+        raise SystemExit("--bvh y --accion deben tener la misma cantidad de elementos")
+    acciones = {}
+    for bvh, nombre in zip(bvhs, nombres):
+        if destino.animation_data:
+            destino.animation_data.action = None
+        acciones[nombre or os.path.basename(bvh)] = retargetear(esc, destino, bvh, nombre, mapa, contacto,
+                                                                escala_bvh, opciones, dedos)
+    info = dict(next(iter(acciones.values()))) if len(acciones) == 1 else {"acciones": acciones}
 
+    if a.hoja:
+        f_ini, f_fin = esc.frame_start, esc.frame_end
+        info["hoja"] = hoja_de_contacto(destino, a.hoja, f_ini, f_fin, a.cuadros)
+
+    os.makedirs(os.path.dirname(os.path.abspath(a.salida)), exist_ok=True)
+    bpy.ops.wm.save_as_mainfile(filepath=a.salida, compress=True)
+    info.update({"salida": a.salida, "segundos": round(time.time() - t0, 1)})
+    comun.resultado(info)
+
+
+def postura_natural(bvh: str, huesos: list[str], escala_bvh: float, opciones: dict) -> dict:
+    """Rotación local media de columna, cuello y cabeza del actor parado (quieto, natural).
+
+    En algunos esqueletos de captura (100STYLE) la pose cero del BVH no es una postura natural: el cuello
+    y la cabeza quedan ~45° inclinados respecto de cómo se para una persona. Usar esta postura como
+    «reposo» de esos huesos hace que una persona parada derecha quede derecha en el personaje."""
     bpy.ops.object.select_all(action="DESELECT")
-    bpy.ops.import_anim.bvh(filepath=a.bvh, global_scale=0.01, axis_forward="-Z", axis_up="Y",
-                            rotate_mode="NATIVE", use_fps_scale=False, update_scene_fps=True,
-                            update_scene_duration=True)
+    bpy.ops.import_anim.bvh(filepath=bvh, global_scale=escala_bvh, axis_forward=opciones.get("adelante", "-Z"),
+                            axis_up=opciones.get("arriba", "Y"), rotate_mode="NATIVE", use_fps_scale=False,
+                            update_scene_fps=False, update_scene_duration=False)
+    cal = bpy.context.selected_objects[0]
+    acc = cal.animation_data.action
+    f0, f1 = (int(x) for x in acc.frame_range)
+    suma = {h: None for h in huesos if h in cal.pose.bones}
+    for f in range(f0, f1 + 1, max(1, (f1 - f0) // 60)):
+        bpy.context.scene.frame_set(f)
+        for h in suma:
+            q = cal.pose.bones[h].matrix_basis.to_quaternion()
+            if suma[h] is None:
+                suma[h] = q.copy()
+            else:
+                if suma[h].dot(q) < 0:
+                    q.negate()
+                suma[h] = Quaternion([x + y for x, y in zip(suma[h], q)])
+    bpy.data.objects.remove(cal, do_unlink=True)
+    bpy.data.actions.remove(acc)
+    return {h: q.normalized() for h, q in suma.items() if q is not None}
+
+
+def reposo_calibrado(fuente, calibracion: dict, Ws) -> dict:
+    """Rotación en el mundo de cada hueso con la postura natural en columna/cuello/cabeza y el resto en reposo."""
+    accion = fuente.animation_data.action
+    fuente.animation_data.action = None
+    modos = {pb.name: pb.rotation_mode for pb in fuente.pose.bones}
+    for pb in fuente.pose.bones:
+        pb.rotation_mode = "QUATERNION"
+        pb.rotation_quaternion = calibracion.get(pb.name, Quaternion())
+        pb.location = (0, 0, 0)
+    bpy.context.view_layer.update()
+    salida = {pb.name: rot(Ws @ pb.matrix) for pb in fuente.pose.bones}
+    for pb in fuente.pose.bones:
+        pb.rotation_quaternion = Quaternion()
+        pb.rotation_mode = modos[pb.name]
+    fuente.animation_data.action = accion
+    bpy.context.view_layer.update()
+    return salida
+
+
+def pose_dedos(origen: str, destino) -> dict:
+    """Rotación de los dedos en el primer cuadro de una acción de la biblioteca (manos relajadas)."""
+    ruta, _, nombre = origen.rpartition(":")
+    if not os.path.exists(ruta):
+        return {}
+    with bpy.data.libraries.load(ruta, link=False) as (src, dst):
+        dst.actions = [nombre] if nombre in src.actions else []
+    acc = bpy.data.actions.get(nombre)
+    if not acc:
+        return {}
+    destino.animation_data_create()
+    destino.animation_data.action = acc
+    bpy.context.scene.frame_set(int(acc.frame_range[0]))
+    dedos = {pb.name: pb.rotation_quaternion.copy() for pb in destino.pose.bones
+             if any(d in pb.name for d in ("Thumb", "Index", "Middle", "Ring", "Pinky"))}
+    destino.animation_data.action = None
+    bpy.data.actions.remove(acc)
+    return dedos
+
+
+def retargetear(esc, destino, bvh: str, nombre_accion: str, mapa: dict, contacto: set, escala_bvh: float,
+                opciones: dict, dedos: dict) -> dict:
+    bpy.ops.object.select_all(action="DESELECT")
+    bpy.ops.import_anim.bvh(filepath=bvh, global_scale=escala_bvh, axis_forward=opciones.get("adelante", "-Z"),
+                            axis_up=opciones.get("arriba", "Y"), rotate_mode="NATIVE", use_fps_scale=False,
+                            update_scene_fps=True, update_scene_duration=True)
     fuente = bpy.context.selected_objects[0]
     fuente.name = "kimodo_fuente"
     bpy.context.view_layer.update()
 
     pares = []
-    for s_nombre, t_nombre in MAPA.items():
+    for s_nombre, t_nombre in mapa.items():
         sb, tb = buscar_hueso(fuente, s_nombre), buscar_hueso(destino, t_nombre)
         if sb and tb:
             pares.append((sb.name, tb.name))
@@ -104,7 +211,8 @@ def main() -> None:
         return (arm_w.to_3x3() @ (bone.tail_local - bone.head_local)).normalized()
 
     # ¿Miran hacia el mismo lado? Se compara hacia dónde apunta el brazo izquierdo en reposo.
-    s_izq, t_izq = buscar_hueso(fuente, "LeftArm"), buscar_hueso(destino, "LeftArm")
+    s_brazo = next((s_ for s_, t_ in mapa.items() if t_ == "LeftArm"), "LeftArm")
+    s_izq, t_izq = buscar_hueso(fuente, s_brazo), buscar_hueso(destino, "LeftArm")
     giro = False
     if s_izq and t_izq and dir_mundo(Ws, s_izq).x * dir_mundo(Wt, t_izq).x < 0:
         fuente.rotation_euler.z += math.pi
@@ -118,6 +226,11 @@ def main() -> None:
     # los pies o las manos depende de cómo se armó cada esqueleto, no de la pose (la cadera de SOMA apunta
     # hacia abajo y la de Mixamo hacia arriba: alinearla volteaba la pelvis 156°).
     s_rest = {s: rot(Ws @ fuente.data.bones[s].matrix_local) for s, _ in pares}
+    if opciones.get("_calibracion"):
+        natural = reposo_calibrado(fuente, opciones["_calibracion"], Ws)
+        for s, _ in pares:
+            if s.split(":")[-1] in opciones["_calibracion"] or s.split(":")[-1] in opciones.get("calibrar", []):
+                s_rest[s] = natural[s]
     mapa_t = {t: s for s, t in pares}
     alineacion = {}
     for tb in destino.data.bones:  # en orden padre → hijo
@@ -190,14 +303,17 @@ def main() -> None:
     # Anclaje al piso cuadro a cuadro: la articulación de contacto más baja del personaje (dedos, tobillos,
     # rodillas, manos o cadera) queda a la misma altura que en el movimiento original. Así, al arrodillarse
     # o sentarse, las rodillas y la cadera tocan el piso aunque las proporciones de las piernas sean otras.
-    contactos = [(s, t) for s, t in pares if s.split(":")[-1] in CONTACTO]
+    contactos = [(s, t) for s, t in pares if s.split(":")[-1] in contacto]
+    # Kimodo (SOMA) mide casi lo mismo que el personaje: se compara la altura tal cual (comportamiento
+    # medido y aprobado). Otros esqueletos se escalan por la diferencia de estatura.
+    factor_s = escala if opciones.get("contacto_escalado") else 1.0
     pb_cad = destino.pose.bones[t_cad.name]
     a_hueso = rot(t_cad.matrix_local).inverted()
     a_arm = Wt.inverted().to_3x3()
     ajustes = []
     for f in range(f_ini, f_fin + 1):
         esc.frame_set(f)
-        alto_s = min((Ws @ fuente.pose.bones[s].head).z for s, _ in contactos)
+        alto_s = min((Ws @ fuente.pose.bones[s].head).z for s, _ in contactos) * factor_s
         alto_t = min((Wt @ destino.pose.bones[t].head).z for _, t in contactos)
         dz = alto_s - alto_t
         ajustes.append(dz)
@@ -207,24 +323,49 @@ def main() -> None:
     bpy.data.objects.remove(fuente, do_unlink=True)
     if accion and accion.name in bpy.data.actions:
         bpy.data.actions.remove(accion)  # la acción del BVH ya no hace falta
-    if a.accion and destino.animation_data and destino.animation_data.action:
-        previa = bpy.data.actions.get(a.accion)
+    if nombre_accion and destino.animation_data and destino.animation_data.action:
+        previa = bpy.data.actions.get(nombre_accion)
         if previa and previa != destino.animation_data.action:
             bpy.data.actions.remove(previa)
-        destino.animation_data.action.name = a.accion
+        destino.animation_data.action.name = nombre_accion
         destino.animation_data.action.use_fake_user = True
 
     info = {"huesos_emparejados": len(pares), "cuadros": f_fin - f_ini + 1, "fps": esc.render.fps,
             "escala_traslacion": round(escala, 4), "giro_180": giro,
             "anclaje_piso_m": {"min": round(min(ajustes), 4), "max": round(max(ajustes), 4)}}
+    if dedos:  # el BVH no trae dedos: manos relajadas (pose tomada de una animación Mixamo)
+        for nombre, q in dedos.items():
+            pb = destino.pose.bones.get(nombre)
+            if pb and nombre not in mapa_t:
+                pb.rotation_quaternion = q
+                pb.keyframe_insert("rotation_quaternion", frame=f_ini)
+                pb.keyframe_insert("rotation_quaternion", frame=f_fin)
+        info["dedos"] = len(dedos)
+    if opciones:
+        # Los dedos del pie se despegan rápido al dar el paso (y su captura es ruidosa): no cuentan.
+        info["validacion"] = validar_accion(destino, f_ini, f_fin, [t for _, t in pares if "Toe" not in t])
+    return info
 
-    if a.hoja:
-        info["hoja"] = hoja_de_contacto(destino, a.hoja, f_ini, f_fin, a.cuadros)
 
-    os.makedirs(os.path.dirname(os.path.abspath(a.salida)), exist_ok=True)
-    bpy.ops.wm.save_as_mainfile(filepath=a.salida, compress=True)
-    info.update({"salida": a.salida, "segundos": round(time.time() - t0, 1)})
-    comun.resultado(info)
+def validar_accion(rig, f_ini: int, f_fin: int, huesos: list[str]) -> dict:
+    """Saltos de rotación entre cuadros seguidos (un salto grande = hueso que da la vuelta) y altura de la cadera."""
+    esc = bpy.context.scene
+    previo, salto, peor = {}, 0.0, ""
+    alturas = []
+    cad = next(pb for pb in rig.pose.bones if pb.name.endswith("Hips"))
+    for f in range(f_ini, f_fin + 1):
+        esc.frame_set(f)
+        for h in huesos:
+            q = (rig.matrix_world @ rig.pose.bones[h].matrix).to_quaternion()
+            if h in previo:
+                ang = math.degrees(previo[h].rotation_difference(q).angle)
+                ang = min(ang, 360.0 - ang)  # q y -q son la misma rotación
+                if ang > salto:
+                    salto, peor = ang, h
+            previo[h] = q
+        alturas.append((rig.matrix_world @ cad.head).z)
+    return {"salto_max_grados": round(salto, 1), "hueso_salto": peor,
+            "cadera_m": [round(min(alturas), 3), round(max(alturas), 3)]}
 
 
 def hoja_de_contacto(rig, ruta: str, f_ini: int, f_fin: int, n: int) -> str:

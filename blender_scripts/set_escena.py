@@ -147,12 +147,16 @@ def biselar(ob, ancho=0.01):
 
 
 def emparentar(hijos, nombre: str) -> bpy.types.Object:
+    # Sin actualizar la escena, matrix_world de un objeto recién creado es la identidad (medido en GPU por
+    # Antigravity: la puerta quedaba hundida a media altura y la pantalla del teléfono oculta).
+    bpy.context.view_layer.update()
     raiz = bpy.data.objects.new(nombre, None)
     bpy.context.scene.collection.objects.link(raiz)
     for h in hijos:
         m = h.matrix_world.copy()
         h.parent = raiz
         h.matrix_world = m
+    bpy.context.view_layer.update()
     return raiz
 
 
@@ -173,7 +177,7 @@ def crear_taza():
     taza.data.materials.append(material_color("ceramica", (0.92, 0.9, 0.86), 0.25))
     s = taza.modifiers.new("Grosor", "SOLIDIFY")
     s.thickness = 0.005
-    bpy.ops.mesh.primitive_torus_add(major_radius=0.026, minor_radius=0.007, location=(0.05, 0, 0.055),
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.026, minor_radius=0.007, location=(-0.05, 0, 0.055),
                                      rotation=(math.pi / 2, 0, 0))
     asa = bpy.context.object
     asa.data.materials.append(taza.data.materials[0])
@@ -228,6 +232,7 @@ def importar_modelo(ruta: str, nombre: str) -> bpy.types.Object:
             m = o.matrix_world.copy()
             o.parent = raiz
             o.matrix_world = Matrix.Translation(-base) @ m
+    bpy.context.view_layer.update()
     raiz["tam"] = tuple(mx - mn)
     return raiz
 
@@ -325,11 +330,13 @@ def interaccion(rig, item: dict, tray: dict, f0: int, f1: int, info: list, parte
         bisagra = hm + adelante * 0.06 - eje_x * manija_local.x
         bisagra.z = 0.0
         puerta.matrix_world = Matrix.Translation(bisagra) @ rot
+        z_base = puerta.rotation_euler.z  # sin atan2 aparte: evita el salto +π/−π (giro de 360° antes de tocarla)
         puerta.keyframe_insert("rotation_euler", frame=f0)
         partes_puerta.append({"bisagra": bisagra.copy(), "eje": eje_x.copy(), "normal": normal.copy(),
                               "ancho": 0.9, "alto": 2.05})
         registro.update({"contacto": c, "manija_z": round(hm.z, 2)})
         if tipo == "puerta":
+            puerta.keyframe_insert("rotation_euler", frame=max(f0, c - 1))  # cerrada hasta que la toca
             # La hoja gira siguiendo a la mano desde el contacto hasta que la suelta (o se aleja).
             ang_prev, signo = 0.0, 0
             r0 = (hm - bisagra)
@@ -344,11 +351,11 @@ def interaccion(rig, item: dict, tray: dict, f0: int, f1: int, info: list, parte
                 if (tray[mano][f] - (bisagra + Matrix.Rotation(ang * (signo or 1), 3, "Z") @ (hm - bisagra))).length > 0.25:
                     break  # soltó la manija
                 ang_prev = min(ang, math.radians(100))
-                puerta.rotation_euler.z = math.atan2(eje_x.y, eje_x.x) + ang_prev * (signo or 1)
+                puerta.rotation_euler.z = z_base + ang_prev * (signo or 1)
                 puerta.keyframe_insert("rotation_euler", frame=f)
             # termina de abrirse sola si quedó más de medio abierta
             if ang_prev > math.radians(15) and f < d1:
-                puerta.rotation_euler.z = math.atan2(eje_x.y, eje_x.x) + math.radians(95) * (signo or 1)
+                puerta.rotation_euler.z = z_base + math.radians(95) * (signo or 1)
                 puerta.keyframe_insert("rotation_euler", frame=min(d1, f + 12))
             registro["angulo_max"] = round(math.degrees(ang_prev), 1)
         info.append(registro)
@@ -366,16 +373,24 @@ def interaccion(rig, item: dict, tray: dict, f0: int, f1: int, info: list, parte
     ob = crear_objeto(item)
     if tipo in ("mano", "caja"):
         if tipo == "caja":  # entre las dos manos
+            if item.get("escala"):
+                ob.scale = [float(item["escala"])] * 3
+                bpy.context.view_layer.update()
             p = (tray["R"][d0] + tray["L"][d0]) / 2
             ob.matrix_world = Matrix.Translation(p - Vector((0, 0, Vector(ob["tam"]).z * ob.scale[0] / 2)))
         else:
             rot_mano = tray[f"matriz_{mano}"][d0].to_quaternion().to_matrix().to_4x4()
             # «desfase» (m, en los ejes de la mano) saca el objeto de la palma para que no quede tapado.
-            desfase = rot_mano.to_3x3() @ Vector(item.get("desfase", (0.0, 0.0, 0.0)))
-            ob.matrix_world = Matrix.Translation(tray[mano][d0] + desfase) @ rot_mano
-        if item.get("escala"):
-            ob.scale = [float(item["escala"])] * 3
-        seguir_mano(ob, tray, mano if tipo == "mano" else "R", d0, d1, d0)
+            # Está calibrado para la mano R (−X sale de la palma); en la L el eje palmar es +X.
+            v_desf = Vector(item.get("desfase", (0.0, 0.0, 0.0)))
+            if mano == "L":
+                v_desf.x = -v_desf.x
+            desfase = rot_mano.to_3x3() @ v_desf
+            giro_mano = Matrix.Rotation(math.pi, 4, "Z") if mano == "L" else Matrix.Identity(4)
+            esc_m = Matrix.Scale(float(item["escala"]), 4) if item.get("escala") else Matrix.Identity(4)
+            ob.matrix_world = Matrix.Translation(tray[mano][d0] + desfase) @ rot_mano @ giro_mano @ esc_m
+        # el objeto acompaña a la mano toda la toma (no solo durante el tramo)
+        seguir_mano(ob, tray, mano if tipo == "mano" else "R", f0, f1, d0)
     elif tipo == "agarrar":
         c = cuadro_contacto(tray, mano, d0, d1, "bajo", rig)
         p = tray[mano][c].copy()

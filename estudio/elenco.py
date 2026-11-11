@@ -60,7 +60,8 @@ def preparar(nombre: str, registro=log) -> Path:
     url = SITIO + f["descarga"]
     archivo = destino / ("descarga.zip" if url.endswith(".zip") else Path(f["blend"]).name)
     registro(f"Descargando {f['titulo']} ({url})…")
-    with urllib.request.urlopen(url, timeout=600) as r, open(archivo, "wb") as out:
+    req = urllib.request.Request(url, headers={"User-Agent": "EDDIE-STUDIO-3D/1.0 (estudio de video personal)"})
+    with urllib.request.urlopen(req, timeout=600) as r, open(archivo, "wb") as out:
         shutil.copyfileobj(r, out, length=1 << 20)
     if archivo.suffix == ".zip":
         with zipfile.ZipFile(archivo) as z:
