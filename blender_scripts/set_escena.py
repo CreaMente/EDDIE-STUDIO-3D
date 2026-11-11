@@ -273,12 +273,32 @@ def respaldo_claro(raiz) -> Vector | None:
     if not pts:
         return None
     zmin, zmax = min(p.z for p in pts), max(p.z for p in pts)
-    altos = [p for p in pts if p.z > zmin + (zmax - zmin) * 0.75]
     c = sum(pts, Vector()) / len(pts)
-    d = sum(((p - c) for p in altos), Vector()) / len(altos)
-    d.z = 0
-    ancho = max(max(p.x for p in pts) - min(p.x for p in pts), max(p.y for p in pts) - min(p.y for p in pts))
-    return d.normalized() if d.length > 0.08 * max(ancho, 0.1) else None
+    # Se mide en los ejes del propio mueble y relativo a su tamaño EN ESE eje: en un sofá el respaldo se
+    # corre poco en metros pero mucho respecto de su profundidad (medido: comparar contra el ancho total lo
+    # descartaba y el sofá quedaba de espaldas a la cámara).
+    rot = raiz.matrix_world.to_3x3().normalized()
+    # Varias franjas altas: en un Chesterfield brazos y respaldo miden lo mismo y solo la franja más alta
+    # (15 %) delata el respaldo (medido en sofa_02: 0.31 con 15 %, −0.03 con 25 %).
+    mejor = None
+    for frac in (0.75, 0.85, 0.92):
+        altos = [p for p in pts if p.z > zmin + (zmax - zmin) * frac]
+        if len(altos) < 8:
+            continue
+        d = sum(((p - c) for p in altos), Vector()) / len(altos)
+        for eje in (rot.col[0].copy(), rot.col[1].copy()):
+            eje.z = 0
+            if eje.length < 1e-6:
+                continue
+            eje.normalize()
+            proy = [(p - c).dot(eje) for p in pts]
+            extension = max(proy) - min(proy)
+            rel = d.dot(eje) / max(extension, 0.05)
+            if mejor is None or abs(rel) > abs(mejor[0]):
+                mejor = (rel, eje)
+    if mejor is None or abs(mejor[0]) < 0.12:
+        return None  # simétrico (mesa, estante): se deja como está
+    return mejor[1] if mejor[0] > 0 else -mejor[1]
 
 
 def lado_respaldo(raiz) -> Vector:

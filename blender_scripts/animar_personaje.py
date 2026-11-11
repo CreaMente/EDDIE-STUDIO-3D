@@ -347,10 +347,14 @@ def retargetear(esc, destino, bvh: str, nombre_accion: str, mapa: dict, contacto
     return info
 
 
+# Antebrazos, manos, piernas y pies se mueven de verdad rápido (golpes, saludos, pasos): más margen que el núcleo.
+EXTREMIDADES = ("ForeArm", "Hand", "Leg", "Foot")
+
+
 def validar_accion(rig, f_ini: int, f_fin: int, huesos: list[str]) -> dict:
     """Saltos de rotación entre cuadros seguidos (un salto grande = hueso que da la vuelta) y altura de la cadera."""
     esc = bpy.context.scene
-    previo, salto, peor = {}, 0.0, ""
+    previo, salto, peor, saltos = {}, 0.0, "", {}
     alturas = []
     cad = next(pb for pb in rig.pose.bones if pb.name.endswith("Hips"))
     for f in range(f_ini, f_fin + 1):
@@ -360,11 +364,14 @@ def validar_accion(rig, f_ini: int, f_fin: int, huesos: list[str]) -> dict:
             if h in previo:
                 ang = math.degrees(previo[h].rotation_difference(q).angle)
                 ang = min(ang, 360.0 - ang)  # q y -q son la misma rotación
+                saltos[h] = max(saltos.get(h, 0.0), ang)
                 if ang > salto:
                     salto, peor = ang, h
             previo[h] = q
         alturas.append((rig.matrix_world @ cad.head).z)
+    nucleo = [v for h, v in saltos.items() if not any(x in h for x in EXTREMIDADES)]
     return {"salto_max_grados": round(salto, 1), "hueso_salto": peor,
+            "salto_nucleo_grados": round(max(nucleo, default=0.0), 1),
             "cadera_m": [round(min(alturas), 3), round(max(alturas), 3)]}
 
 

@@ -22,7 +22,9 @@ from . import bvh, catalogo
 from .proveedores import estilos100 as e100
 
 MAPA = config.REPO / "estudio" / "esqueletos" / "estilos100.json"
-SALTO_MAX = 25.0  # grados entre dos cuadros seguidos: más que eso es un hueso que «da la vuelta»
+SALTO_MAX = 25.0  # grados entre dos cuadros seguidos en columna/cadera/cabeza/hombros
+# Extremidades (antebrazo, mano, pierna, pie): hasta 35° en todos los estilos. Medido: «enojado», «eufórico» y
+# «saludar» mueven los antebrazos 25–29° por cuadro de verdad. Un hueso que da la vuelta salta ~90–180°.
 # Corriendo, brazos y antebrazos se mueven de verdad más rápido (medido: 26–27° en «apurado» correr/caminar,
 # limpios a la vista). Un hueso que da la vuelta salta ~90–180°: 35° sigue atrapándolo.
 SALTO_MAX_RAPIDO = 35.0
@@ -121,9 +123,11 @@ def convertir_estilos(estilos: str = "", tipos: str = "ID,FW,FR,BW,SW", hilos: i
                 motivo = ""
                 if acc.get("huesos_emparejados", 0) < 20:
                     motivo = f"solo {acc.get('huesos_emparejados')} huesos emparejados"
-                elif val.get("salto_max_grados", 0) > (SALTO_MAX_RAPIDO if tipo_de(clave) in TIPOS_RAPIDOS
-                                                       or "Rushed" == r["estilo"] else SALTO_MAX):
+                elif val.get("salto_max_grados", 0) > SALTO_MAX_RAPIDO:
                     motivo = f"salto de {val['salto_max_grados']}° en {val.get('hueso_salto')}"
+                elif val.get("salto_nucleo_grados", val.get("salto_max_grados", 0)) > (
+                        SALTO_MAX_RAPIDO if tipo_de(clave) in TIPOS_RAPIDOS or r["estilo"] == "Rushed" else SALTO_MAX):
+                    motivo = f"salto de {val.get('salto_nucleo_grados')}° en la columna/cadera/cabeza"
                 tipo = tipo_de(clave)
                 entrada = {"clave": clave, "origen": "100style", "estilo": r["estilo"], "tipo": tipo,
                            "descripcion": descripcion.get(r["estilo"], ""), "blend": r["blend"],
