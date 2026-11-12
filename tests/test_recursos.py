@@ -152,6 +152,8 @@ def _():
     xs = [c[0] for c in cuadros[20:-20]]
     assert max(xs) - min(xs) < 1.0  # quedó en el lugar
     assert all(abs(x) < 1.0 for x in xs)  # y centrado en el origen (no donde estaba el actor)
+    yaws = [c[3] for c in cuadros[20:-20]]
+    assert "rumbo_quitado_grados" in info and max(abs(y) for y in yaws) < 3.0  # sin rumbo: mira al frente
     assert bvh.tramo_mas_recto(origen, 0, 600, 120) >= 0
 
 

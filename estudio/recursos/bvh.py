@@ -95,11 +95,8 @@ def recortar(origen: Path, destino: Path, desde: int = 0, cuadros: int | None = 
         for k, c in enumerate(tramo):
             c[ix] = c[ix] - sx[k]
             c[iz] = c[iz] - sz[k]
-    else:
-        x0, z0 = tramo[0][ix], tramo[0][iz]
-        for c in tramo:
-            c[ix] -= x0
-            c[iz] -= z0
+        # Sin rumbo: mira siempre al frente del esqueleto, como Mixamo (si no, al fundirse con una animación
+        # Mixamo el personaje gira hasta 180°; medido por Antigravity en borracho, apurado y deprimido).
         if "Yrotation" in raiz and raiz.index("Yrotation") == 3:  # orden Y X Z: Y es el rumbo en el mundo
             iyaw = 3
             yaw = _desenrollar([c[iyaw] for c in tramo])
@@ -107,6 +104,11 @@ def recortar(origen: Path, destino: Path, desde: int = 0, cuadros: int | None = 
             for k, c in enumerate(tramo):
                 c[iyaw] = yaw[k] - syaw[k]
             info["rumbo_quitado_grados"] = round(max(syaw) - min(syaw), 1)
+    else:
+        x0, z0 = tramo[0][ix], tramo[0][iz]
+        for c in tramo:
+            c[ix] -= x0
+            c[iz] -= z0
     salida_cuadros = tramo[::paso]
     info["cuadros"] = len(salida_cuadros)
     info["segundos"] = round(len(salida_cuadros) / fps, 2)

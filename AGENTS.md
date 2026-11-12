@@ -223,6 +223,16 @@ Cuando el propietario pida una historia («¿Qué pasaría si…?» o la que sea
    - `"desde_s": 0.9` en una toma del guion técnico salta el inicio de la acción (la toma entra ya en movimiento).
    - Mirada: con cámara de frente los ojos buscan la cámara (máx. 22° respecto de la cara); con cámara de lado o
      detrás (`angulo` > 90) siguen a la cara. Así no quedan en blanco al agachar la cabeza.
+   - Aprendido en el video «diez tazas de café» (medido en GPU):
+     - `abrir_puerta`: la hoja abre hacia el otro espacio; con la cámara del lado de la manija tapa o atraviesa
+       al personaje. Usa la cámara del lado de la bisagra y detrás del plano de la puerta (`angulo` ≈ -108).
+     - Muebles: algunos modelos de Poly Haven son plantas sin maceta (`calathea_orbifolia_01`) o van sobre una mesa
+       (`Television_01`, laptop, lámpara): como mueble de piso usa `potted_plant_01`, sillones, sofás, camas, estantes.
+     - Si el montaje avisa cuadros congelados en una toma con `mezcla` grande, alarga los `segundos` del último tramo
+       (cada fundido se come esos cuadros).
+     - En planos picados con `tristeza`, `"mirada": "frente"` evita los ojos en blanco.
+     - Revisa las últimas palabras de `voz/palabras.json`: la alineación puede comprimirlas al final; si pasa,
+       los subtítulos del cierre se adelantan.
    - Continuidad: mismo personaje, misma ropa, mismo escenario dentro de una escena; la acción de una toma
      continúa en la siguiente (si sale por la puerta, la toma siguiente empieza del otro lado).
 3. `video_producir(proyecto, guion_tecnico, calidad="borrador")` → trabajo. Al terminar mira el video con
