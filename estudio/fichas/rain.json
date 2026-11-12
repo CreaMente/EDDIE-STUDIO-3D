@@ -116,5 +116,47 @@
   },
   "calibrado": "Blender 5.2: mandíbula +X abre; comisuras +Y sonrisa, L+X/R−X ancha; párpado −Y cierra; ceja +Y sube",
   "ojos": "TGT-Eyes"
- }
+ },
+ "secundario": [
+  {
+   "nombre": "coleta",
+   "huesos": [
+    "FK-Hair_Ponytail1",
+    "FK-Hair_Ponytail2",
+    "FK-Hair_Ponytail3",
+    "FK-Hair_Ponytail4"
+   ],
+   "largo_m": 0.07,
+   "rigidez": 0.22,
+   "amortiguacion": 0.15,
+   "max_grados": 40,
+   "gravedad": 0.6
+  },
+  {
+   "nombre": "mechon",
+   "huesos": [
+    "FK-Hair_Strand1",
+    "FK-Hair_Strand2"
+   ],
+   "largo_m": 0.06,
+   "rigidez": 0.3,
+   "amortiguacion": 0.2,
+   "max_grados": 30,
+   "gravedad": 0.5
+  },
+  {
+   "nombre": "bufanda",
+   "huesos": [
+    "FK-Scarf1",
+    "FK-Scarf2",
+    "FK-Scarf3"
+   ],
+   "largo_m": 0.1,
+   "rigidez": 0.35,
+   "amortiguacion": 0.25,
+   "max_grados": 25,
+   "gravedad": 0.5
+  }
+ ],
+ "_secundario": "Cadenas con movimiento secundario (blender_scripts/secundario.py): resorte por tramo. rigidez 0–1 = cuánto vuelve al reposo por cuadro; amortiguacion 0–1 = cuánta velocidad pierde; largo_m = largo visual de cada tramo; max_grados = tope. gravedad 0–1 = cuánto cuelga como en reposo aunque la cabeza se incline (gira con el cuerpo)."
 }

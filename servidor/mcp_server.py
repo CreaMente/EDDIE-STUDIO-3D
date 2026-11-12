@@ -740,7 +740,8 @@ def toma_crear(proyecto: str, personaje: str, secuencia: list[dict], nombre: str
                motor: str = "CYCLES", calidad: str = "final", hdri: str = "",
                piso: str = "laminate_floor_02", con_voz: bool = False, camara: dict | None = None,
                bloques: int = 3, expresion: str = "neutral", intensidad: float = 1.0, habla: bool = False,
-               frase: int = -1, escenario: str | dict = "estudio", objetos: list[dict] | None = None) -> dict:
+               frase: int = -1, escenario: str | dict = "estudio", objetos: list[dict] | None = None,
+               exagerar: float = 0.0) -> dict:
     """Arma y renderiza una toma 3D a MP4 vertical 1080x1920.
 
     secuencia: lista de tramos, en orden. Cada tramo es uno de:
@@ -767,6 +768,9 @@ def toma_crear(proyecto: str, personaje: str, secuencia: list[dict], nombre: str
     hdri: vacío = el del escenario (id de Poly Haven).
     expresion (elenco): neutral, alegria, dolor, sorpresa, miedo, tristeza, enojo, asco, pensativo;
       intensidad 0–1.5.
+    exagerar (elenco): acentúa los gestos de torso, cabeza y brazos (estilo caricatura): 0 = natural,
+      0.3–0.6 = caricatura, >1 grotesco. Piernas y cadera no se tocan. El pelo y la ropa (coleta, bufanda)
+      siempre se mueven con inercia (se pasan y se asientan).
     habla + frase (elenco): mueve los labios con la frase n de la narración (voz/frases.json). Úsalo cuando
       el protagonista cuenta la historia en primera persona y se le ve la cara.
     camara: {"plano": "primerisimo"} con planos predefinidos: general, medio, primer_plano, primerisimo
@@ -786,7 +790,7 @@ def toma_crear(proyecto: str, personaje: str, secuencia: list[dict], nombre: str
             "--muestras", str(muestras), "--escala", str(escala), "--piso", piso,
             "--bloques", str(max(1, min(int(bloques), 8))),
             "--expresion", expresion, "--intensidad", str(intensidad), "--habla", "1" if habla else "0",
-            "--frase", str(int(frase)),
+            "--frase", str(int(frase)), "--exagerar", str(float(exagerar)),
             "--escenario", json.dumps(escenario, ensure_ascii=False) if isinstance(escenario, dict) else escenario,
             "--objetos", json.dumps(objetos or [], ensure_ascii=False)]
     if hdri:

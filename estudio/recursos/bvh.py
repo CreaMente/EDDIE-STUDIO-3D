@@ -89,11 +89,17 @@ def recortar(origen: Path, destino: Path, desde: int = 0, cuadros: int | None = 
     marcas = list(range(0, len(tramo), ventana))
     recorrido = sum(math.hypot(xs[b] - xs[a], zs[b] - zs[a]) for a, b in zip(marcas, marcas[1:]))
     info["velocidad_m_s"] = round(recorrido * unidad_m / max(dt, (marcas[-1] - marcas[0]) * dt), 3)
+    # Centrado en el origen: si se conserva la posición del actor dentro del estudio de captura (100STYLE: a
+    # ~4 m del centro), al fundirse con otra animación el personaje se desliza esos metros en la transición.
     if en_lugar:
-        x0, z0 = sx[0], sz[0]
         for k, c in enumerate(tramo):
-            c[ix] = c[ix] - sx[k] + x0
-            c[iz] = c[iz] - sz[k] + z0
+            c[ix] = c[ix] - sx[k]
+            c[iz] = c[iz] - sz[k]
+    else:
+        x0, z0 = tramo[0][ix], tramo[0][iz]
+        for c in tramo:
+            c[ix] -= x0
+            c[iz] -= z0
         if "Yrotation" in raiz and raiz.index("Yrotation") == 3:  # orden Y X Z: Y es el rumbo en el mundo
             iyaw = 3
             yaw = _desenrollar([c[iyaw] for c in tramo])

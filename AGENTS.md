@@ -124,6 +124,11 @@ No finjas un video terminado.
   - `habla=true, frase=n`: los labios dicen la frase n de la narración. Úsalo cuando el protagonista
     cuenta la historia en primera persona y se le ve la cara (primer plano). La toma debe empezar donde
     empieza esa frase en el montaje (plan `{"toma": …, "frase": n}`).
+- **Pelo y ropa (solo elenco, automático):** la coleta, el mechón y la bufanda de Rain y el moño de Snow se
+  mueven con inercia y gravedad: llegan tarde, se pasan y se asientan (cadenas en `secundario` de cada ficha).
+- **Exagerar (solo elenco):** `exagerar` 0–1 acentúa los gestos de columna, cabeza y brazos (estilo caricatura;
+  0.3–0.6 recomendado, más de 1 se ve grotesco). Cadera y piernas no se tocan (los pies no patinan). En
+  `toma_crear(..., exagerar=0.5)`, por toma en el guion técnico o para todo el video (`"exagerar": 0.4` en la raíz).
 - **Armar una toma:** `toma_crear(proyecto, personaje, secuencia, calidad="borrador")` → trabajo → revisa el MP4 con `hoja_de_contacto` → si está bien, repite con `calidad="final"`.
 - **`secuencia`** es la lista de tramos en orden:
   - `{"anim": "caminar_herido", "segundos": 4, "avance": true}`: animación Mixamo.

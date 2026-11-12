@@ -403,6 +403,11 @@ def cmd_toma(a) -> None:
             args_cara += ["--palabras", str(palabras), "--desde_s", str(desde), "--habla", "1"]
         pasos["cara"] = correr(blender.comando(blender.script("cara_personaje.py"), args_cara),
                                f"cara de {ficha['titulo']} ({a.expresion}{', habla' if a.habla else ''})")
+        if (a.secundario and ficha.get("secundario")) or a.exagerar > 0:
+            pasos["secundario"] = correr(blender.comando(blender.script("secundario.py"), [
+                "--animado", str(transferido), "--ficha", str(ruta_ficha), "--salida", str(transferido),
+                "--exagerar", str(a.exagerar), "--secundario", str(a.secundario)]),
+                f"pelo y ropa con inercia{f', exagerar {a.exagerar}' if a.exagerar > 0 else ''}")
         animado = transferido
 
     # 3. Escenario (Poly Haven), objetos con los que interactúa y render.
@@ -483,6 +488,9 @@ def main() -> None:
     pt.add_argument("--esqueleto", default="remy", help="personaje Mixamo base para el elenco")
     pt.add_argument("--expresion", default="neutral")
     pt.add_argument("--intensidad", type=float, default=1.0)
+    pt.add_argument("--exagerar", type=float, default=0.0,
+                    help="elenco: acentúa gestos de torso y brazos (0 = no; 0.3–0.6 = caricatura)")
+    pt.add_argument("--secundario", type=int, default=1, help="elenco: pelo y ropa con inercia (1 = sí)")
     pt.add_argument("--habla", type=int, default=0)
     pt.add_argument("--frase", type=int, default=-1, help="frase de la voz que dice en esta toma")
     pt.add_argument("--voz_desde", type=float, default=0.0)

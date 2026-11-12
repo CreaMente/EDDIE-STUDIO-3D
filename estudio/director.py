@@ -25,7 +25,8 @@ Formato del guion técnico (JSON):
   ],
   "textos": [{"texto": "DÍA 3", "frase": 4}], "musica": "", "fundido": 0
 }
-Cualquier campo de toma_crear vale por toma (personaje, escenario, objetos, hdri, expresion, intensidad…).
+Cualquier campo de toma_crear vale por toma (personaje, escenario, objetos, hdri, expresion, intensidad,
+exagerar…). «exagerar» también puede ir en la raíz del guion (para todo el video).
 """
 
 from __future__ import annotations
@@ -111,6 +112,7 @@ def main() -> None:
                 "--escenario", json.dumps(escenario, ensure_ascii=False) if isinstance(escenario, dict) else escenario,
                 "--camara", json.dumps(t.get("camara", {"plano": "medio"})),
                 "--expresion", t.get("expresion", "neutral"), "--intensidad", str(t.get("intensidad", 1.0)),
+                "--exagerar", str(t.get("exagerar", guion.get("exagerar", 0.0))),
                 "--objetos", json.dumps(t.get("objetos", []), ensure_ascii=False),
                 "--bloques", str(t.get("bloques", 3))]
         if t.get("habla"):

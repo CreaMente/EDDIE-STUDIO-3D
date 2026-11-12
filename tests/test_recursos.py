@@ -151,6 +151,7 @@ def _():
     assert abs(info["velocidad_m_s"] - 0.6) < 0.05  # 1 cm por cuadro a 60 cuadros/s
     xs = [c[0] for c in cuadros[20:-20]]
     assert max(xs) - min(xs) < 1.0  # quedó en el lugar
+    assert all(abs(x) < 1.0 for x in xs)  # y centrado en el origen (no donde estaba el actor)
     assert bvh.tramo_mas_recto(origen, 0, 600, 120) >= 0
 
 
